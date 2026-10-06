@@ -412,18 +412,21 @@
         "lshape_femaleSpeech_fullMove": {
           "vrs": "L_shape_full_moving_female_tracked.vrs",
           "speaker": "female",
-          "motion": "full"
+          "motion": "full",
+          "optitrack_csv": "L_shape_full_moving_female_tracked.csv",
+          "placement": "optitrack_geometry",
+          "pose_source": "mps"
         },
         "lshape_maleSpeech_fullMove2": {
           "vrs": "L_shape_moving_male_tracked_1.vrs",
           "speaker": "male",
-          "motion": "full"
+          "motion": "full",
+          "optitrack_csv": "L_shape_full_moving_male_tracked_1.csv",
+          "placement": "optitrack_geometry",
+          "pose_source": "mps"
         }
       },
-      "exclude": {
-        "lshape_femaleSpeech_fullMove": "fails sourceSig placement validation by -29 smp (0.6 ms). Old protocol: the wearer walks for the whole speech (only 66-68 s is still), so the stillest window still moved 0.15 m, which alone changes the path by ~21 smp.",
-        "lshape_maleSpeech_fullMove2": "fails sourceSig placement validation by -195 smp (4.1 ms = 1.4 m of path): placement locked onto a reflection, not motion smear. No still window anywhere in the speech."
-      },
+      "exclude": {},
       "distance_m": 2.13,
       "omni_mic_height_m": null,
       "source_height_m": null,
@@ -443,7 +446,42 @@
           "L-shape_no_markers_sweep_3.vrs"
         ]
       },
-      "sweeps_history": "The Sweep_Received files first supplied were loopbacks (direct path 0.00 ms, 97-98% of the energy in 2.5 ms, clipping); they were replaced Oct 5 with the omni recordings, which put the direct path at 7.42 ms (2.15 m with the 1.14 ms chain latency, vs 2.13 m taped). sweep_signal.wav was replaced at the same time and is sample-identical to L2_Office_GT/Sweep_source.wav."
+      "sweeps_history": "The Sweep_Received files first supplied were loopbacks (direct path 0.00 ms, 97-98% of the energy in 2.5 ms, clipping); they were replaced Oct 5 with the omni recordings, which put the direct path at 7.42 ms (2.15 m with the 1.14 ms chain latency, vs 2.13 m taped). sweep_signal.wav was replaced at the same time and is sample-identical to L2_Office_GT/Sweep_source.wav.",
+      "optitrack_dir": "L_shape_room_optitrack",
+      "optitrack_link": {
+        "R_rb_dev": [
+          [
+            -0.111458,
+            0.749432,
+            0.652632
+          ],
+          [
+            -0.138848,
+            0.638539,
+            -0.756961
+          ],
+          [
+            -0.984022,
+            -0.174986,
+            0.032887
+          ]
+        ],
+        "l_rb_m": [
+          0.0744,
+          -0.0815,
+          -0.0247
+        ],
+        "fitted_on": [
+          "L_shape_head_moving_male_tracked",
+          "L_shape_head_moving_female_tracked"
+        ],
+        "note": "hand-eye rotation (rigid body -> device) and lever arm (body origin -> device origin, body frame), mean of the two head-moving fits, which agree to 4.4 deg and 1.2 cm. Fixed constants: the build never refits them; only the clock offset is fitted per take.",
+        "speaker_bodies": [
+          "speaker_side",
+          "speaker_top"
+        ],
+        "speed_of_sound_m_s": 343.0
+      }
     }
   }
 }

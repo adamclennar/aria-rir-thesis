@@ -126,6 +126,16 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
             f"{a0:.0f}-{a1:.0f} s (overlap {overlap:.0f} s of {a1 - a0:.0f} s) -- this MPS output "
             f"is from a different recording")
     pose = device_to_array(pose_raw, R_dc, t_dc)
+    # OptiTrack (L-shape only): tracked geometry for placement and/or pose.
+    # The link constants are fixed in config; only the clock offset is fitted.
+    geo = geo_fit = None
+    if tc.get("placement") == "optitrack_geometry" or tc.get("pose_source") == "optitrack":
+        import geometry_placement as gp
+        geo = gp.tracked_geometry(rc, tc, RAW, vrs, pose_raw)
+        print(f"  OptiTrack {geo['csv']}: clock offset {geo['clk']['tau_s']:+.4f} s (sync corr "
+              f"{geo['clk']['coarse_corr']:.2f}); vs MPS median {geo['vs_mps_pos_median_cm']:.1f} cm / "
+              f"{geo['vs_mps_rot_median_deg']:.1f} deg (p90 {geo['vs_mps_pos_p90_cm']:.1f} cm / "
+              f"{geo['vs_mps_rot_p90_deg']:.1f} deg)")
     t_sp0 = ts_ns[0] / 1e9 + al["speech_start_take_s"]
     t_sp1 = ts_ns[0] / 1e9 + al["speech_end_take_s"]
     irs = sweep_info = None
@@ -154,8 +164,24 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
         # +/-0.5 s) stays inside the speech; a window straddling the silence
         # before it finds no direct path at all.
         t_ref, yaw_spread, disp = stillest_window(pose, t_sp0 + 2.5, t_sp1 - 2.5)
-        place_at(al, t_ref - ts_ns[0] / 1e9, fs)
-        al["placement_source"] = "speech (GCC-PHAT)"
+        if tc.get("placement") == "optitrack_geometry":
+            # The wearer never stands still, so a window measures a blur (or a
+            # reflection). The tracked mic-0-to-loudspeaker delay removes the
+            # motion; see geometry_placement.py. t_ref is still chosen from
+            # the MPS pose, so the SLAM- and OptiTrack-pose versions of a take
+            # share the same reference instant and the same placement.
+            geo_fit = gp.place_from_geometry(al, geo, x[:, 0], ts_ns / 1e9, t_ref, fs)
+            print(f"  geometry placement: whole-speech peak/std {geo_fit['peak_ratio']:.0f}, halves agree to "
+                  f"{geo_fit['K_half2'] - geo_fit['K_half1']:+d} smp, per-second residuals IQR "
+                  f"{geo_fit['residual_iqr_smp']:.0f} smp ({geo_fit['residual_within_24_pct']:.0f}% within +/-24, "
+                  f"{geo_fit['residual_windows_sharp']}/{geo_fit['residual_windows']} windows); distance "
+                  f"{geo_fit['distance_speech_range_m'][0]:.2f}-{geo_fit['distance_speech_range_m'][1]:.2f} m, "
+                  f"{geo_fit['distance_ref_m']:.2f} m at the reference")
+        else:
+            place_at(al, t_ref - ts_ns[0] / 1e9, fs)
+            al["placement_source"] = "speech (GCC-PHAT)"
+    if tc.get("pose_source") == "optitrack":
+        pose = device_to_array(gp.hybrid_pose(geo, pose_raw), R_dc, t_dc)
     ref_mask = (pose.t_s >= t_ref - 1.0) & (pose.t_s < t_ref + 1.0)
     if ref_mask.sum() < 100:
         raise RuntimeError("reference window has no MPS samples")
@@ -183,6 +209,7 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
     if sm57 is not None:
         sm57_on_drive = place(sm57, k_sm, len(drive))
         sourceSigSm57 = place(sm57_on_drive[s0:s1], al["lag_place"] + s0 - a, n)
+    meta_speech_start = al["speech_start_take_s"] - a / fs
     meta_speech_end = al["speech_end_take_s"] - a / fs
     t_audio = ts_ns[a:b] / 1e9
     if t_audio[0] < pose.t_s[0] - 0.5 or t_audio[-1] > pose.t_s[-1] + 0.5:
@@ -190,7 +217,7 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
               f"{pose.t_s[0]:.1f}-{pose.t_s[-1]:.1f} s; pose clamped at the ends")
     print(f"  reference window at {t_ref - ts_ns[0] / 1e9 - a / fs:.1f} s of the trimmed take: yaw spread {yaw_spread:.0f} deg, "
           f"moved {disp:.2f} m; placement from {al['placement_source']}"
-          + ("" if sweep_info is not None else
+          + ("" if (sweep_info is not None or geo_fit is not None) else
              f", PHAT peak/std {al['ref_window_peak_ratio']:.0f}, spread {al['ref_window_offset_spread']:.0f} smp "
              f"over {al['ref_window_used']}/{al['ref_window_n']} usable windows"))
 
@@ -201,11 +228,17 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
     ypr_a = np.stack([np.interp(tq, pose_w.t_s, ypr[:, k]) for k in range(3)], 1)
     ypr_a[:, 0] = np.angle(np.exp(1j * ypr_a[:, 0]))
     pos_a = np.stack([np.interp(tq, pose_w.t_s, pose_w.p[:, k]) for k in range(3)], 1)
-    qual_a = np.interp(tq, pose_w.t_s, pose_w.quality)
+    qual_a = np.interp(np.clip(t_audio, pose_raw.t_s[0], pose_raw.t_s[-1]), pose_raw.t_s, pose_raw.quality)
+    opti_a = (np.interp(tq, pose_w.t_s, pose_w.quality) > 0.999).astype(float) \
+        if tc.get("pose_source") == "optitrack" else None
     ref_ypr = np.stack([np.angle(np.exp(1j * ypr[ref_mask, 0])).mean(), ypr[ref_mask, 1].mean(), ypr[ref_mask, 2].mean()])
     print(f"  pose: yaw range {np.degrees(ypr_a[:, 0].min()):+.0f}..{np.degrees(ypr_a[:, 0].max()):+.0f} deg, "
           f"max horizontal excursion {np.hypot(pos_a[:, 0], pos_a[:, 1]).max():.2f} m, "
-          f"MPS quality<1 on {100 * np.mean(qual_a < 1):.1f}% of samples")
+          f"MPS quality<1 on {100 * np.mean(qual_a < 1):.1f}% of samples"
+          + ("" if opti_a is None else
+             f"; POSE FROM OPTITRACK on {100 * opti_a.mean():.1f}% of samples "
+             f"({100 * opti_a[int(meta_speech_start * fs):int(meta_speech_end * fs)].mean():.1f}% of the speech), "
+             f"MPS-filled elsewhere"))
 
     if sweep_info is not None:
         i_s = int(np.argmin(np.abs(pose_w.t_s - sum(sweep_info["takeSpanS"]) / 2 - ts_ns[0] / 1e9)))
@@ -228,6 +261,21 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
                                             al["ref_window_centre_take_s"] - a / fs)
     off = vlag - al["pre_delay_samples"]
     ok = abs(off) <= 24 and vstable and vpk >= 8
+    if geo_fit is not None:
+        # On a walking take the 6 s window above spans a changing distance, so
+        # it is reported for context only. The gate is the motion-compensated
+        # check over the whole speech, plus the two geometry checks.
+        print(f"  window check (context only -- it blurs over the walk): {off:+d} smp, peak/std {vpk:.0f}")
+        pre = al["pre_delay_samples"]
+        D_rel = geo_fit["D"][a:b] - geo_fit["D_ref_smp"]
+        span = (int((meta_speech_start + 1.0) * fs), int((meta_speech_end - 1.0) * fs))
+        vlag, vpk = gp.validate_geometry(arraySigs[:, 0], sourceSig, D_rel, geo_fit["valid"][a:b], span, pre, fs)
+        off = vlag - pre
+        halves = geo_fit["K_half2"] - geo_fit["K_half1"]
+        ok = (abs(off) <= 24 and vpk >= 8 and abs(halves) <= 24
+              and geo_fit["residual_within_24_pct"] >= 80)
+        vstable = abs(halves) <= 24
+        geo_fit["validation_offset_smp"], geo_fit["validation_peak_ratio"] = int(off), float(vpk)
     print(f"  placement check: direct path at {vlag / fs * 1e3:+.2f} ms "
           f"({off:+d} smp from the {al['pre_delay_samples'] / fs * 1e3:.0f} ms target), "
           f"peak/std {vpk:.0f}, stable: {vstable} -> {'OK' if ok else 'FAILED'}")
@@ -243,7 +291,11 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
 
     # -- write -------------------------------------------------------------
     info = (f"Aria Gen 1 glasses, 7 mics, {room} room, take {tc['vrs']}. Loudspeaker: Genelec, "
-            f"EARS {tc['speaker']} speech (60 s). Pose from Aria MPS closed-loop SLAM, expressed in "
+            f"EARS {tc['speaker']} speech (60 s). Pose from "
+            + ("OptiTrack (Motive 'glasses' body mapped to the device by a hand-eye rotation and lever "
+               "arm fitted on the room's head-moving takes; gaps filled from MPS, see poseIsOptitrack)"
+               if tc.get("pose_source") == "optitrack" else "Aria MPS closed-loop SLAM")
+            + ", expressed in "
             f"the array frame (+x forward, +y left, +z up) relative to the mean pose over "
             + ("the in-take sweep, during which the wearer stood on the mark facing the loudspeaker"
                if sweep_info is not None else "the stillest 2 s of the speech")
@@ -264,6 +316,15 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
             "mps_quality_below1_fraction": float(np.mean(qual_a < 1)),
             "mps_quality_min": float(qual_a.min()),
             "R_device_cpf": R_dc.tolist(), "t_device_cpf": t_dc.tolist(),
+            "pose_source": tc.get("pose_source", "mps"),
+            **({"optitrack": {"csv": geo["csv"], "clock_offset_s": geo["clk"]["tau_s"],
+                              "sync_corr": geo["clk"]["coarse_corr"],
+                              "R_rb_dev": rc["optitrack_link"]["R_rb_dev"], "l_rb_m": rc["optitrack_link"]["l_rb_m"],
+                              "speaker_point_m": geo["src"].tolist(), "mic0_device_m": geo["mic0"].tolist(),
+                              "vs_mps": {k: geo[k] for k in geo if k.startswith("vs_mps")},
+                              **({"pose_fraction_take": float(opti_a.mean())} if opti_a is not None else {}),
+                              **({"placement": {k: v for k, v in geo_fit.items() if k not in ("D", "valid")}}
+                                 if geo_fit is not None else {})}} if geo is not None else {}),
             **({"sweep": sweep_info} if irs is not None else {}), **frame}
     out = {"arraySigs": arraySigs, "sourceSig": sourceSig[:, None],
            **({"sourceSigSm57": sourceSigSm57[:, None]} if sourceSigSm57 is not None else {}),
@@ -271,6 +332,7 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
            "referencePos": np.zeros((1, 3)), "referenceRotationAziEleRad": np.array([[0.0, ref_ypr[1]]]),
            **({"IRs": irs} if irs is not None else {}),
            "rotationYawPitchRollRad": ypr_a, "translationXYZCart": pos_a, "mpsQuality": qual_a[:, None],
+           **({"poseIsOptitrack": opti_a[:, None]} if opti_a is not None else {}),
            "info": info, "meta": meta}
     out_dir.mkdir(parents=True, exist_ok=True)
     sio.savemat(out_dir / f"{stem}.mat", out, do_compression=False, oned_as="column")
