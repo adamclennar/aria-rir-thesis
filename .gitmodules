@@ -1,0 +1,6 @@
+[submodule "external/room-acoustic-matching"]
+	path = external/room-acoustic-matching
+	url = https://github.com/thomasdeppisch/room-acoustic-matching.git
+[submodule "external/ita-toolbox"]
+	path = external/ita-toolbox
+	url = https://git.rwth-aachen.de/ita/toolbox.git
