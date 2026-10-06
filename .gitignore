@@ -1,0 +1,11 @@
+# machine-specific locations (copy config/paths.example.json)
+config/paths.json
+# everything under data/ and results/ is built from the raw recordings
+data/rooms/
+data/anechoic/
+data/cache/
+results/
+__pycache__/
+*.pyc
+*.asv
+.DS_Store

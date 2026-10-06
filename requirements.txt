@@ -1,0 +1,7 @@
+# build stage (raw recordings -> .mat). Versions are the ones the thesis
+# results were built with (Python 3.12.7).
+numpy==2.5.2
+scipy==1.17.1
+soundfile==0.14.0
+matplotlib==3.10.8
+projectaria-tools==2.1.4

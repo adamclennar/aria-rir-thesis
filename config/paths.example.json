@@ -1,0 +1,4 @@
+{
+  "raw_root": "/path/to/aria_data_techlab_final",
+  "chime_atf_pkl": "/path/to/CHiME_Aria_ATFs/aria_atfs.pkl"
+}

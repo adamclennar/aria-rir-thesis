@@ -1,0 +1,149 @@
+# Room acoustics from moving head-worn arrays: baseline reproduction
+
+Reproduction of the method of Deppisch et al. (2026), *Identification and
+Matching of Room Acoustics With Moving Head-Worn Microphone Arrays*
+(EURASIP JASMP 2026:30), on recordings made with Aria Gen 1 glasses in five
+rooms. The paper's algorithms (WPE dereverberation, MUSIC + MPDR beamformer,
+motion-aware and omni RLS) run **unmodified** from the authors' code, pinned as
+a submodule; this repository supplies everything around them: turning the
+recordings into the paper's take format, the reference measurements, and the
+scoring.
+
+> **Status:** scaffold for the thesis codebase. The files are those that
+> produced the baseline results in the working repository; they have not yet
+> been run from here.
+
+## Two stages
+
+```
+raw recordings                       take files                       results
+(Aria VRS + MPS, OptiTrack,   --->   data/rooms/*.mat          --->   RIR estimates,
+ drive + reference WAVs)      build/  (the paper's format)  pipeline/  T20 / DRR errors
+                              Python                        MATLAB
+```
+
+`pipeline/` runs on the published take files. `build/` documents how those
+files were produced from raw recordings that are not distributed: it is
+provenance, not something readers can run. The two stages share no code;
+`build/` needs Python and Aria's tools, `pipeline/` needs only MATLAB.
+
+## What is in here
+
+**Stage 1 -- `build/` (raw -> `.mat`)**
+
+| file | role |
+|---|---|
+| `build_take.py` | one take file: audio trim, source-signal placement and its validation, pose in the paper's convention, noise floor, in-take sweep IRs |
+| `vrs_audio.py` | 7-channel audio and device calibration from the VRS |
+| `pose_mps.py` | MPS closed-loop SLAM -> array pose, reference frame W' |
+| `source_align.py` | GCC-PHAT placement of the drive signal |
+| `noise.py` | silence segment and noise PSD |
+| `build_reference.py` | omni sweep at the listening position -> T20, DRR, distance, block length |
+| `build_array_sweeps.py` | standalone array-side sweeps -> 7-channel IRs (L-shape room) |
+| `build_atf.py` | CHiME Aria ATFs -> the paper's ATF layout |
+| `pose_optitrack.py`, `geometry_placement.py`, `optitrack_io.py` | OptiTrack link and geometry-based placement, needed for the two L-shape walking takes that have no still window (see `config/rooms.json`) |
+| `check_takes.py` | one-line-per-take sanity table |
+| `paths.py` | merges `config/rooms.json` with the machine-specific `config/paths.json` |
+
+**Stage 2 -- `pipeline/` (`.mat` -> results)**
+
+| file | role |
+|---|---|
+| `runTake.m`, `runAll.m` | the paper's four conditions (informed/blind x motion-aware/omni) on one take / all takes |
+| `prepAriaTake.m` | loads a take and sets everything up as `estimateRirs.m` does |
+| `rlsFit.m`, `bfEstimate.m`, `getWpe.m`, `defaultWpeParams.m` | thin wrappers calling the upstream functions with the published parameters |
+| `scoreRir.m`, `rescore.m` | T20 / DRR scoring against the room references |
+| `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
+| `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
+
+**Configuration**: `config/rooms.json` defines the dataset -- every room, every
+take, the files each uses, and every exclusion with its reason.
+
+**External code**
+
+| path | what | licence |
+|---|---|---|
+| `external/room-acoustic-matching` | Deppisch et al.'s code, submodule pinned at `76c6ea3`, unmodified | Chalmers non-commercial academic licence |
+| `external/ita-toolbox` | ITA toolbox (T20 via Lundeby), submodule pinned at `fbf29e1` | BSD-style (RWTH Aachen) |
+| `thirdparty/stft` | T. Shlomo's STFT, vendored (upstream's nested submodule, `d7993ac`, is not fetched) | MIT |
+
+## Not in here (yet)
+
+Deliberately excluded so this reproduces the paper and nothing more: the
+block-length sweep, world-frame DoA analysis, dereverberation and dose-response
+studies, and the SLAM-vs-OptiTrack pose ablation (`*Opti` takes). Also
+excluded: the composite drive generator, because the files actually played
+(118 s) were not produced by it -- the played drive signals are part of the raw
+data.
+
+## Setup
+
+```bash
+git clone <this repo> && cd aria-rir-thesis
+git submodule update --init          # NOT --recursive: upstream's own submodules are not needed
+cp config/paths.example.json config/paths.json   # then set raw_root and chime_atf_pkl
+pip install -r requirements.txt
+```
+
+MATLAB R2025a with the Signal Processing, Statistics and Machine Learning, and
+Symbolic Math toolboxes (the last is pulled in by the ITA toolbox).
+
+## Order of operations
+
+```bash
+python build/build_atf.py                        # ATFs
+python build/build_reference.py                  # omni references, all rooms
+python build/build_take.py                       # every take in config/rooms.json
+python build/build_array_sweeps.py lshape        # L-shape array sweeps
+matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','meeting'})"
+matlab -batch "cd pipeline; buildSweepReference('lshape','lshape_maleSpeech_static')"
+./run_takes.sh <take> [<take> ...]               # stage 2, one MATLAB process per take
+```
+
+## Where this deviates from the paper
+
+All forced by the data rather than chosen; each is documented where it is
+implemented.
+
+* **ATFs**: CHiME Aria set (HATS, 1674 directions), horizontal ring; the paper
+  used its own KEMAR measurements of its glasses.
+* **Block length**: per room, the smallest 500 ms multiple >= 2 x the longest
+  octave-band T20 of the omni reference, because the RLS returns half a block
+  of RIR (an oracle input; see below).
+* **References**: T20 from an omni on a stand at the listening position; DRR
+  from array-side sweeps (median over takes), because a free-field omni reads
+  several dB higher than a head-worn array at the same spot.
+* **Pose**: Aria MPS closed-loop SLAM (no OptiTrack in four of the five rooms).
+* **Clock rate**: the laptop and the glasses both sample at a nominal 48 kHz
+  from independent clocks; no drift correction is applied (see
+  `build/source_align.py` for why and for the error bound, <= 0.2 ms).
+* **Source placement**: the drive signal is placed so its direct path lands at
+  10 ms at the reference pose and validated before a take is written; two
+  L-shape walking takes are placed from OptiTrack-tracked geometry instead.
+
+## Oracle inputs
+
+The baseline takes two inputs from outside the glasses, as a reproduction
+under controlled conditions does:
+
+* **Block length**, the RLS's main hyperparameter, is set from the omni
+  reference measurement (2 x its longest octave-band T20).
+* **Segmentation** -- the trim to the playback, the speech span, the window
+  the reference pose is chosen in, and the span the noise window is chosen
+  outside -- is located by aligning the known drive signal with the
+  recording.
+
+Everything else the blind conditions use comes from the glasses: array
+audio, MPS pose (computed from the glasses' own cameras and IMU) and the
+device calibration, plus the CHiME ATFs, a fixed prior for this glasses
+model. The informed conditions also use the source signal, by definition.
+A later glasses-only stage replaces both oracle inputs, block length from
+the glasses data and segmentation from speech activity and pose, so that
+ground truth is used only for scoring.
+
+## Licence
+
+The licence for this repository's own code is not chosen yet. The upstream
+code it runs is **non-commercial academic use only** (see
+`external/room-acoustic-matching/LICENSE`); it is included as an unmodified
+submodule, not copied.
