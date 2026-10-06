@@ -1,0 +1,449 @@
+{
+  "_comment": "One entry per room. Paths are relative to raw_root, which is set per machine in config/paths.json. 'takes' map the output stem to the raw VRS + MPS folder; 'drive' names the loudspeaker drive file used for that take. 'exclude' lists takes to skip and why. 'motion' is static|head|full, a label. 'sweeps' are recorded with an OMNI microphone on a stand at the listening position (so the reference RIR carries RT, DRR and the source distance); 'sm57' are the near-field recordings at the loudspeaker used as the alternative informed source signal. 'distance_m' is the tape-measured loudspeaker-to-listening-position distance; build_reference cross-checks its derived distance against it. 'omni_mic_height_m' / 'source_height_m' record the sweep geometry: the omni sat on a stand just under shoulder height, below the wearer's head, which shifts the floor-bounce comb notch within the 125 Hz band (see README). Composite-protocol rooms (clicks -> sweep -> speech in one played file) add 'speech_span_s' (the speech inside the drive file), 'source_span_s' (the portion kept as sourceSig / the take trim, i.e. the speech file's own extent) and 'sweep_span_s' (the sweep excitation inside the drive file: its lead, the sweep, and the silence after it, but STOPPING BEFORE THE SPEECH BEGINS at 52.5 s. Running it to the end of the sweep file (55.625 s) puts 3.1 s of speech into the excitation, which the deconvolution then treats as part of the sweep -- harmless-looking in a reverberant room but it doubled the measured T20 at 125-250 Hz in the dry office. It yields the 7-channel array RIR in the IRs field). Any of 'drive', 'sm57', 'speech_span_s', 'source_span_s', and 'sweep_span_s' may also be set PER TAKE, which overrides the room-level value. The corridor needs this: its static and head-moving takes (Sep 21) played the old 66 s speech-only file, while its walking takes were re-recorded on Sep 23 with the 118 s composite, so the protocol is a property of the take there rather than of the room. 'sm57' may be null, which omits sourceSigSm57: the corridor walking takes have no near-field recording of the composite, and borrowing another room's would put that room's early reflections into a corridor reference. A take may set 'mps' to override the default mps_<vrs stem>_vrs folder; meeting_maleSpeech_fullMove needs it because the folder bearing its name holds a trajectory from another recording (verified by device-clock overlap). build_take refuses any MPS whose span does not cover the audio.",
+  "rooms": {
+    "office": {
+      "aria_dir": "L2_Office_aria",
+      "gt_dir": "L2_Office_GT",
+      "pose": "mps",
+      "sweep_source": "L2_Office_GT/Sweep_source.wav",
+      "sweeps": [
+        "Sweep_Received_1.wav",
+        "Sweep_Received_2.wav",
+        "Sweep_Received_3.wav"
+      ],
+      "noise_floor": "Noise_floor.wav",
+      "drive": {
+        "male": "Reverb_room_GT/full_male_drive_signal.wav",
+        "female": "Reverb_room_GT/full_female_drive_signal.wav"
+      },
+      "sm57": {
+        "male": "Reverb_room_GT/received_full_male_signal_sm57.wav",
+        "female": "Reverb_room_GT/received_full_female_signal_sm57.wav"
+      },
+      "takes": {
+        "office_maleSpeech_static": {
+          "vrs": "New_Office_L2_static_male.vrs",
+          "speaker": "male",
+          "motion": "static"
+        },
+        "office_femaleSpeech_static": {
+          "vrs": "New_Office_L2_static_female_2.vrs",
+          "speaker": "female",
+          "motion": "static"
+        },
+        "office_maleSpeech_headMove": {
+          "vrs": "New_Office_L2_head_moving_male_1.vrs",
+          "speaker": "male",
+          "motion": "head"
+        },
+        "office_femaleSpeech_headMove": {
+          "vrs": "New_Office_L2_head_moving_female.vrs",
+          "speaker": "female",
+          "motion": "head"
+        },
+        "office_maleSpeech_fullMove": {
+          "vrs": "New_Office_L2_full_moving_male.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "office_femaleSpeech_fullMove": {
+          "vrs": "New_Office_L2_full_moving_female.vrs",
+          "speaker": "female",
+          "motion": "full"
+        },
+        "office_maleSpeech_fullMove2": {
+          "vrs": "New_Office_L2_full_moving_male_1.vrs",
+          "speaker": "male",
+          "motion": "full",
+          "note": "second male walking take (Sep 23, 06:10, two minutes after office_maleSpeech_fullMove); MPS output added Oct 4"
+        }
+      },
+      "exclude": {},
+      "distance_m": 2.0,
+      "omni_mic_height_m": 1.3,
+      "source_height_m": null,
+      "speech_span_s": [
+        52.5,
+        112.5
+      ],
+      "source_span_s": [
+        48.5,
+        114.5
+      ],
+      "sweep_span_s": [
+        29.625,
+        52.0
+      ],
+      "dims_m": [
+        4.3,
+        4.16,
+        2.7
+      ]
+    },
+    "corridor": {
+      "aria_dir": "Corridor_aria",
+      "gt_dir": "Corridor_GT",
+      "pose": "mps",
+      "sweep_source": "L2_Office_GT/Sweep_source.wav",
+      "sweeps": [
+        "Sweep_Received_1.wav",
+        "Sweep_Received_2.wav",
+        "Sweep_Received_3.wav"
+      ],
+      "noise_floor": "Noise_floor.wav",
+      "drive": {
+        "male": "L2_Office_GT/male_speech_drive_signal.wav",
+        "female": "L2_Office_GT/female_speech_drive_signal.wav"
+      },
+      "sm57": {
+        "male": "Corridor_GT/received_male_speech_sm57.wav",
+        "female": "Corridor_GT/received_female_speech_sm57.wav"
+      },
+      "takes": {
+        "corridor_maleSpeech_static": {
+          "vrs": "L2_corridor_male_static.vrs",
+          "speaker": "male",
+          "motion": "static"
+        },
+        "corridor_femaleSpeech_static": {
+          "vrs": "L2_corridor_female_static.vrs",
+          "speaker": "female",
+          "motion": "static"
+        },
+        "corridor_maleSpeech_headMove": {
+          "vrs": "L2_corridor_male_head_moving.vrs",
+          "speaker": "male",
+          "motion": "head"
+        },
+        "corridor_femaleSpeech_headMove": {
+          "vrs": "L2_corridor_female_head_moving.vrs",
+          "speaker": "female",
+          "motion": "head"
+        },
+        "corridor_maleSpeech_fullMove_old": {
+          "vrs": "L2_corridor_male_full_moving.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "corridor_femaleSpeech_fullMove_old": {
+          "vrs": "L2_corridor_female_full_moving.vrs",
+          "speaker": "female",
+          "motion": "full"
+        },
+        "corridor_maleSpeech_fullMove": {
+          "vrs": "New_moving/Nes_corridor_male_walking_around_1.vrs",
+          "mps": "New_moving/mps_Nes_corridor_male_walking_around_1_vrs",
+          "speaker": "male",
+          "motion": "full",
+          "drive": {
+            "male": "Corridor_GT/full_male_drive_signal.wav",
+            "female": "Corridor_GT/full_female_drive_signal.wav"
+          },
+          "note": "composite re-recording (Sep 23)",
+          "speech_span_s": [
+            52.5,
+            112.5
+          ],
+          "source_span_s": [
+            48.5,
+            114.5
+          ],
+          "sweep_span_s": [
+            29.625,
+            52.0
+          ],
+          "sm57": null
+        },
+        "corridor_femaleSpeech_fullMove": {
+          "vrs": "New_moving/New_corridor_female_walking_around.vrs",
+          "mps": "New_moving/mps_New_corridor_female_walking_around_vrs",
+          "speaker": "female",
+          "motion": "full",
+          "drive": {
+            "male": "Corridor_GT/full_male_drive_signal.wav",
+            "female": "Corridor_GT/full_female_drive_signal.wav"
+          },
+          "note": "composite re-recording (Sep 23)",
+          "speech_span_s": [
+            52.5,
+            112.5
+          ],
+          "source_span_s": [
+            48.5,
+            114.5
+          ],
+          "sweep_span_s": [
+            29.625,
+            52.0
+          ],
+          "sm57": null
+        },
+        "corridor_maleSpeech_fullMove2": {
+          "vrs": "New_moving/New_Corridor_male_walking_around_.vrs",
+          "mps": "New_moving/mps_New_Corridor_male_walking_around__vrs",
+          "speaker": "male",
+          "motion": "full",
+          "drive": {
+            "male": "Corridor_GT/full_male_drive_signal.wav",
+            "female": "Corridor_GT/full_female_drive_signal.wav"
+          },
+          "note": "second composite male walking take (Sep 23, 03:59); its MPS slam.zip was a truncated download, replaced by a complete one Oct 4",
+          "speech_span_s": [
+            52.5,
+            112.5
+          ],
+          "source_span_s": [
+            48.5,
+            114.5
+          ],
+          "sweep_span_s": [
+            29.625,
+            52.0
+          ],
+          "sm57": null
+        }
+      },
+      "exclude": {
+        "corridor_maleSpeech_fullMove_old": "superseded by corridor_maleSpeech_fullMove: the old walking takes predate the composite protocol, so they carry no in-take sweep and therefore no array RIR and no sweep-derived reference pose.",
+        "corridor_femaleSpeech_fullMove_old": "superseded by corridor_femaleSpeech_fullMove. Also failed the sourceSig placement validation on its own terms: the direct path landed 113 samples (2.4 ms) from the 10 ms target, the weakest alignment in the set (coarse corr 0.10, 4/12 speech-wide PHAT inliers)."
+      },
+      "distance_m": 2.7,
+      "omni_mic_height_m": 1.3,
+      "source_height_m": null,
+      "dims_m": [
+        16.7,
+        3.4,
+        2.7
+      ]
+    },
+    "reverb": {
+      "aria_dir": "Reverb_room_aria",
+      "gt_dir": "Reverb_room_GT",
+      "pose": "mps",
+      "sweep_source": "L2_Office_GT/Sweep_source.wav",
+      "sweeps": [
+        "Sweep_Received_1.wav",
+        "Sweep_Received_2.wav",
+        "Sweep_Received_3.wav"
+      ],
+      "noise_floor": null,
+      "distance_m": 2.2,
+      "omni_mic_height_m": 1.3,
+      "source_height_m": null,
+      "speech_span_s": [
+        52.5,
+        112.5
+      ],
+      "source_span_s": [
+        48.5,
+        114.5
+      ],
+      "sweep_span_s": [
+        29.625,
+        52.0
+      ],
+      "drive": {
+        "male": "Reverb_room_GT/full_male_drive_signal.wav",
+        "female": "Reverb_room_GT/full_female_drive_signal.wav"
+      },
+      "sm57": {
+        "male": "Reverb_room_GT/received_full_male_signal_sm57.wav",
+        "female": "Reverb_room_GT/received_full_female_signal_sm57.wav"
+      },
+      "takes": {
+        "reverb_maleSpeech_static": {
+          "vrs": "Reverb_room_male_static.vrs",
+          "speaker": "male",
+          "motion": "static"
+        },
+        "reverb_femaleSpeech_static": {
+          "vrs": "Reverb_room_female_static.vrs",
+          "speaker": "female",
+          "motion": "static"
+        },
+        "reverb_maleSpeech_headMove": {
+          "vrs": "Reverb_room_male_head_move_2.vrs",
+          "speaker": "male",
+          "motion": "head"
+        },
+        "reverb_femaleSpeech_headMove": {
+          "vrs": "Reverb_room_female_head_moving.vrs",
+          "speaker": "female",
+          "motion": "head"
+        },
+        "reverb_maleSpeech_fullMove": {
+          "vrs": "Reverb_room_male_full_moving.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "reverb_femaleSpeech_fullMove": {
+          "vrs": "Reverb_room_female_full_moving_2.vrs",
+          "speaker": "female",
+          "motion": "full"
+        }
+      },
+      "exclude": {},
+      "dims_m": [
+        5.9,
+        4.1,
+        2.7
+      ]
+    },
+    "meeting": {
+      "aria_dir": "Meeting_room_aria",
+      "gt_dir": "Meeting_room_GT",
+      "pose": "mps",
+      "sweep_source": "L2_Office_GT/Sweep_source.wav",
+      "sweeps": [
+        "Sweep_Received_1.wav",
+        "Sweep_Received_2.wav",
+        "Sweep_Received_3.wav"
+      ],
+      "noise_floor": null,
+      "distance_m": 2.7,
+      "omni_mic_height_m": 1.3,
+      "source_height_m": null,
+      "speech_span_s": [
+        52.5,
+        112.5
+      ],
+      "source_span_s": [
+        48.5,
+        114.5
+      ],
+      "sweep_span_s": [
+        29.625,
+        52.0
+      ],
+      "drive": {
+        "male": "Meeting_room_GT/drive_signal_male_speech.wav",
+        "female": "Meeting_room_GT/drive_signal_female_speech.wav"
+      },
+      "sm57": {
+        "male": "Meeting_room_GT/reference_signal_male_speech_sm57.wav",
+        "female": "Meeting_room_GT/reference_signal_female_speech_sm57.wav"
+      },
+      "takes": {
+        "meeting_maleSpeech_static": {
+          "vrs": "Meeting_room_male_static.vrs",
+          "speaker": "male",
+          "motion": "static"
+        },
+        "meeting_femaleSpeech_static": {
+          "vrs": "Meeting_room_female_static.vrs",
+          "speaker": "female",
+          "motion": "static"
+        },
+        "meeting_maleSpeech_headMove": {
+          "vrs": "Meeting_room_male_head_moving.vrs",
+          "speaker": "male",
+          "motion": "head"
+        },
+        "meeting_femaleSpeech_headMove": {
+          "vrs": "Meeting_room_female_head_moving.vrs",
+          "speaker": "female",
+          "motion": "head"
+        },
+        "meeting_maleSpeech_fullMove": {
+          "vrs": "Meeting_room_male_full_moving.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "meeting_femaleSpeech_fullMove": {
+          "vrs": "Meeting_room_female_full_moving.vrs",
+          "speaker": "female",
+          "motion": "full"
+        }
+      },
+      "exclude": {
+        "Meeting_room_male_full_moving_backup.vrs": "earlier male walking take from the same session; Meeting_room_male_full_moving.vrs (5531-5666 s) is the keeper"
+      },
+      "dims_m": [
+        12.9,
+        8.4,
+        2.7
+      ]
+    },
+    "lshape": {
+      "aria_dir": "L_shape_room_aria",
+      "gt_dir": "L_shape_room_GT",
+      "pose": "mps",
+      "sweep_source": "L_shape_room_GT/sweep_signal.wav",
+      "sweeps": [
+        "Sweep_Received_1.wav",
+        "Sweep_Received_2.wav",
+        "Sweep_Received_3.wav"
+      ],
+      "noise_floor": "L_room_recorded_noise_floor.wav",
+      "drive": {
+        "male": "L_shape_room_GT/L_shape_male_speaker_drive_signal.wav",
+        "female": "L_shape_room_GT/L_shape_female_speaker_drive_signal.wav"
+      },
+      "sm57": {
+        "male": "L_shape_room_GT/L_shape_male_speaker_reference_sm57.wav",
+        "female": "L_shape_room_GT/L_shape_female_speaker_reference_sm57.wav"
+      },
+      "takes": {
+        "lshape_maleSpeech_static": {
+          "vrs": "L_shape_static_male_tracked.vrs",
+          "speaker": "male",
+          "motion": "static"
+        },
+        "lshape_femaleSpeech_static": {
+          "vrs": "L_shape_static_female_tracked.vrs",
+          "speaker": "female",
+          "motion": "static"
+        },
+        "lshape_maleSpeech_headMove": {
+          "vrs": "L_shape_head_moving_male_tracked.vrs",
+          "speaker": "male",
+          "motion": "head"
+        },
+        "lshape_femaleSpeech_headMove": {
+          "vrs": "L_shape_head_moving_female_tracked.vrs",
+          "speaker": "female",
+          "motion": "head"
+        },
+        "lshape_maleSpeech_fullMove": {
+          "vrs": "L_shape_full_moving_male_tracked.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "lshape_femaleSpeech_fullMove": {
+          "vrs": "L_shape_full_moving_female_tracked.vrs",
+          "speaker": "female",
+          "motion": "full"
+        },
+        "lshape_maleSpeech_fullMove2": {
+          "vrs": "L_shape_moving_male_tracked_1.vrs",
+          "speaker": "male",
+          "motion": "full"
+        }
+      },
+      "exclude": {
+        "lshape_femaleSpeech_fullMove": "fails sourceSig placement validation by -29 smp (0.6 ms). Old protocol: the wearer walks for the whole speech (only 66-68 s is still), so the stillest window still moved 0.15 m, which alone changes the path by ~21 smp.",
+        "lshape_maleSpeech_fullMove2": "fails sourceSig placement validation by -195 smp (4.1 ms = 1.4 m of path): placement locked onto a reflection, not motion smear. No still window anywhere in the speech."
+      },
+      "distance_m": 2.13,
+      "omni_mic_height_m": null,
+      "source_height_m": null,
+      "note": "Sep 20 session, old protocol (stand on the mark, 66 s speech-only drive; no in-take sweep). Pose from MPS (added Oct 5); OptiTrack (L_shape_room_optitrack/) kept as an independent check. L_shape_room_aria/L_shape_audio_sweeps/ holds six separate array-side sweep recordings (Sep 23, 3 with OptiTrack markers on the glasses, 3 without), same loudspeaker and mark as the Sep 20 takes (confirmed by the recordist).",
+      "array_sweeps": {
+        "dir": "L_shape_audio_sweeps",
+        "excitation": "L2_Office_GT/Sweep_source.wav",
+        "played": "L_shape_room_GT/L-shape-room-sweep-aria-GT.wav",
+        "markers": [
+          "L-shape_markers_sweep_1.vrs",
+          "L-shape_markers_sweep_2.vrs",
+          "L-shape_markers_sweep_3.vrs"
+        ],
+        "no_markers": [
+          "L-shape_no_markers_sweep_1.vrs",
+          "L-shape_no_markers_sweep_2.vrs",
+          "L-shape_no_markers_sweep_3.vrs"
+        ]
+      },
+      "sweeps_history": "The Sweep_Received files first supplied were loopbacks (direct path 0.00 ms, 97-98% of the energy in 2.5 ms, clipping); they were replaced Oct 5 with the omni recordings, which put the direct path at 7.42 ms (2.15 m with the 1.14 ms chain latency, vs 2.13 m taped). sweep_signal.wav was replaced at the same time and is sample-identical to L2_Office_GT/Sweep_source.wav."
+    }
+  }
+}
