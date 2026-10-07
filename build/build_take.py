@@ -163,7 +163,18 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
         # Keep 2.5 s of margin so every placement window (up to 3 s, offset
         # +/-0.5 s) stays inside the speech; a window straddling the silence
         # before it finds no direct path at all.
-        t_ref, yaw_spread, disp = stillest_window(pose, t_sp0 + 2.5, t_sp1 - 2.5)
+        if "ref_time_s" in tc:
+            # A fixed reference instant (seconds from the start of the
+            # recording) instead of the stillest window: on old-protocol
+            # walking takes the stillest moment can have the wearer facing
+            # away from the loudspeaker. The 2 s window is centred on it.
+            t_ref = ts_ns[0] / 1e9 + float(tc["ref_time_s"])
+            w = (pose.t_s >= t_ref - 1.0) & (pose.t_s < t_ref + 1.0)
+            yw = np.unwrap(np.arctan2(pose.R[w, 1, 0], pose.R[w, 0, 0]))
+            yaw_spread = float(np.degrees(np.ptp(yw)))
+            disp = float(np.linalg.norm(pose.p[w] - pose.p[w][0], axis=1).max())
+        else:
+            t_ref, yaw_spread, disp = stillest_window(pose, t_sp0 + 2.5, t_sp1 - 2.5)
         if tc.get("placement") == "optitrack_geometry":
             # The wearer never stands still, so a window measures a blur (or a
             # reflection). The tracked mic-0-to-loudspeaker delay removes the
@@ -237,7 +248,7 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
           f"MPS quality<1 on {100 * np.mean(qual_a < 1):.1f}% of samples"
           + ("" if opti_a is None else
              f"; POSE FROM OPTITRACK on {100 * opti_a.mean():.1f}% of samples "
-             f"({100 * opti_a[int(meta_speech_start * fs):int(meta_speech_end * fs)].mean():.1f}% of the speech), "
+             f"({100 * opti_a[max(int(meta_speech_start * fs), 0):max(min(int(meta_speech_end * fs), n), 1)].mean():.1f}% of the speech kept), "
              f"MPS-filled elsewhere"))
 
     if sweep_info is not None:
@@ -268,7 +279,9 @@ def build_take(room: str, stem: str, out_dir: Path, qa_dir: Path, cache_dir: Pat
         print(f"  window check (context only -- it blurs over the walk): {off:+d} smp, peak/std {vpk:.0f}")
         pre = al["pre_delay_samples"]
         D_rel = geo_fit["D"][a:b] - geo_fit["D_ref_smp"]
-        span = (int((meta_speech_start + 1.0) * fs), int((meta_speech_end - 1.0) * fs))
+        # clamped to the take: a take trimmed to a sub-span (source_span_s) can
+        # start or end mid-speech
+        span = (max(int((meta_speech_start + 1.0) * fs), 0), min(int((meta_speech_end - 1.0) * fs), n))
         vlag, vpk = gp.validate_geometry(arraySigs[:, 0], sourceSig, D_rel, geo_fit["valid"][a:b], span, pre, fs)
         off = vlag - pre
         halves = geo_fit["K_half2"] - geo_fit["K_half1"]
@@ -354,7 +367,12 @@ def validate_placement(take_ch, src, fs, centre_s, target_win_s=6.0):
     wearer's motion as if it were a placement error."""
     from source_align import _hpf, phat_window_lags
     xt, ys = _hpf(take_ch, fs), _hpf(src, fs)
-    centre = centre_s
+    # Keep the window (plus the widest search) inside the signal: a reference
+    # near either end of the take -- e.g. one trimmed to a sub-span -- would
+    # otherwise run off it and return NaN. Changes nothing for a reference
+    # further than ~3.2 s from both ends.
+    edge = target_win_s / 2 + 8000 / fs
+    centre = min(max(centre_s, edge), len(take_ch) / fs - edge)
     out = [phat_window_lags(xt, ys, 0, fs, [centre], win_s=target_win_s, search=s)[0]
            for s in (4000, 8000)]
     # "Stable" = the two widths find the same peak to within 2 samples (0.04 ms).

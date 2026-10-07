@@ -162,6 +162,9 @@ def place_from_geometry(al: dict, geo: dict, take_ch: np.ndarray, t_take_s: np.n
     n1 = int((al["speech_end_take_s"] - 1.0) * fs)
     fit = fit_K(take_ch, al["src"], D, valid, (n0, n1), al["lag_coarse"], fs)
     n_ref = int(np.argmin(np.abs(t_take_s - t_ref_s)))
+    if not valid[n_ref]:
+        raise RuntimeError("no OptiTrack sample within 20 ms of the reference instant; "
+                           "the reference delay would be interpolated across a dropout")
     al["lag_direct"] = int(round(fit["K"] + D[n_ref]))
     al["lag_place"] = al["lag_direct"] - al["pre_delay_samples"]
     al["ref_window_centre_take_s"] = float(t_take_s[n_ref] - t_take_s[0])
