@@ -59,6 +59,16 @@ provenance, not something readers can run. The two stages share no code;
 **Configuration**: `config/rooms.json` defines the dataset -- every room, every
 take, the files each uses, and every exclusion with its reason.
 
+**Rooms**: the baseline comparison uses the four composite-protocol rooms
+(office, corridor, reverb, meeting). The L-shape takes were recorded at the
+end of the same corridor, opening into a larger room -- acoustically the same
+space (T20 within ~5 % of the corridor's in six of seven octave bands) -- with
+OptiTrack running. They exist for the pose-source comparison (the `*Opti`
+takes: the same audio, placement and reference instant with OptiTrack pose
+instead of SLAM), not as an additional room. Both versions of each walking
+take are trimmed to the span OptiTrack tracks completely, so the comparison
+is pure SLAM against pure OptiTrack.
+
 **External code**
 
 | path | what | licence |
@@ -70,8 +80,8 @@ take, the files each uses, and every exclusion with its reason.
 ## Not in here (yet)
 
 Deliberately excluded so this reproduces the paper and nothing more: the
-block-length sweep, world-frame DoA analysis, dereverberation and dose-response
-studies, and the SLAM-vs-OptiTrack pose ablation (`*Opti` takes). Also
+block-length sweep, world-frame DoA analysis, and the dereverberation and
+dose-response studies. Also
 excluded: the composite drive generator, because the files actually played
 (118 s) were not produced by it -- the played drive signals are part of the raw
 data.

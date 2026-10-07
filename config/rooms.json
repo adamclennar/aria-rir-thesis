@@ -436,6 +436,34 @@
             55.7
           ],
           "note": "trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio; the SLAM twin is trimmed identically: OptiTrack gaps at 0-3.72 s and 55.78-58.71 s of the full take are cut off. Reference at 7.0 s, not 6.5 s: the 2 s window around 6.5 s overlaps the first gap (79% OptiTrack); at 7.0 s it is 100% OptiTrack and the wearer still faces the loudspeaker (median +4 deg)"
+        },
+        "lshape_femaleSpeech_fullMoveOpti": {
+          "vrs": "L_shape_full_moving_female_tracked.vrs",
+          "speaker": "female",
+          "motion": "full",
+          "optitrack_csv": "L_shape_full_moving_female_tracked.csv",
+          "placement": "optitrack_geometry",
+          "pose_source": "optitrack",
+          "ref_time_s": 59.0,
+          "note": "OptiTrack-pose twin of lshape_femaleSpeech_fullMove; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio; the SLAM twin is trimmed identically",
+          "source_span_s": [
+            5.7,
+            65.9
+          ]
+        },
+        "lshape_maleSpeech_fullMove2Opti": {
+          "vrs": "L_shape_moving_male_tracked_1.vrs",
+          "speaker": "male",
+          "motion": "full",
+          "optitrack_csv": "L_shape_full_moving_male_tracked_1.csv",
+          "placement": "optitrack_geometry",
+          "pose_source": "optitrack",
+          "ref_time_s": 7.0,
+          "note": "OptiTrack-pose twin of lshape_maleSpeech_fullMove2; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio; the SLAM twin is trimmed identically",
+          "source_span_s": [
+            3.8,
+            55.7
+          ]
         }
       },
       "exclude": {},
