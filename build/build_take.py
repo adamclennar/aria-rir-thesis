@@ -357,7 +357,12 @@ def validate_placement(take_ch, src, fs, centre_s, target_win_s=6.0):
     centre = centre_s
     out = [phat_window_lags(xt, ys, 0, fs, [centre], win_s=target_win_s, search=s)[0]
            for s in (4000, 8000)]
-    return int(out[0][1]), float(max(o[2] for o in out)), bool(out[0][1] == out[1][1])
+    # "Stable" = the two widths find the same peak to within 2 samples (0.04 ms).
+    # Exact equality was too strict: a direct path falling between two samples
+    # gives two equal-height neighbours, and which one wins can flip with the
+    # search width (reverb_maleSpeech_headMove: +478 vs +479, both 14.6). The
+    # test exists to catch a spurious peak that moves by hundreds of samples.
+    return int(out[0][1]), float(max(o[2] for o in out)), bool(abs(out[0][1] - out[1][1]) <= 2)
 
 
 def array_ir_from_sweep(x, drive, sweep_span_s, fs, ir_len_s=3.0, pre_s=0.005, tail_s=3.0):
