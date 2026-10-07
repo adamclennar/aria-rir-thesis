@@ -21,8 +21,13 @@ f = fullfile(cacheDir, sprintf('%s_wpe_%s.mat', P.takeName, tag));
 fp = sigFingerprint(P.d.arraySigs);
 if exist(f,'file')
     L = load(f);
-    if ~isfield(L,'fp') || ~isequal(size(L.y), size(P.d.arraySigs)) || ...
-            max(abs(L.fp - fp)) > 1e-6 * max(1, max(abs(fp)))
+    % EXACT match. The fingerprint is computed the same way from the same
+    % stored doubles, so identical signals always match exactly. (A relative
+    % tolerance scaled by max(abs(fp)) was used here before; the first entry of
+    % fp is the sample count, ~3e6, which made the tolerance ~3 -- larger than
+    % any change a re-trim makes to the sum, the energy or the end samples --
+    % so a cache from a differently trimmed take of the same length passed.)
+    if ~isfield(L,'fp') || ~isequal(size(L.y), size(P.d.arraySigs)) || ~isequal(L.fp, fp)
         fprintf('[%s] WPE(%s) cache is STALE (built from different array signals), recomputing\n', ...
             P.takeName, tag);
     else
