@@ -113,12 +113,16 @@
         "corridor_maleSpeech_headMove": {
           "vrs": "L2_corridor_male_head_moving.vrs",
           "speaker": "male",
-          "motion": "head"
+          "motion": "head",
+          "ref_time_s": 29.0,
+          "note": "reference fixed at 29.0 s: the stillest window had the loudspeaker at +98 deg (from the MUSIC bearing and SLAM yaw; no OptiTrack here). The head sweeps continuously, so this 2 s window is centred on a sweep through the loudspeaker direction: its mean pose faces it to within 1 deg"
         },
         "corridor_femaleSpeech_headMove": {
           "vrs": "L2_corridor_female_head_moving.vrs",
           "speaker": "female",
-          "motion": "head"
+          "motion": "head",
+          "ref_time_s": 41.3,
+          "note": "reference fixed at 41.3 s: the stillest window had the loudspeaker at +93 deg (from the MUSIC bearing and SLAM yaw; no OptiTrack here). The head sweeps continuously, so this 2 s window is centred on a sweep through the loudspeaker direction: its mean pose faces it to within 1 deg"
         },
         "corridor_maleSpeech_fullMove_old": {
           "vrs": "L2_corridor_male_full_moving.vrs",
