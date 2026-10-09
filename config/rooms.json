@@ -357,11 +357,15 @@
           "vrs": "Meeting_room_female_full_moving.vrs",
           "speaker": "female",
           "motion": "full"
+        },
+        "meeting_maleSpeech_fullMove2": {
+          "vrs": "Meeting_room_male_full_moving_backup.vrs",
+          "speaker": "male",
+          "motion": "full",
+          "note": "second male walking take: the earlier take of the same session, recorded as a backup to meeting_maleSpeech_fullMove (Meeting_room_male_full_moving.vrs, 5531-5666 s) and excluded as such until Oct 8; included to match the second male walking takes of the office and corridor"
         }
       },
-      "exclude": {
-        "Meeting_room_male_full_moving_backup.vrs": "earlier male walking take from the same session; Meeting_room_male_full_moving.vrs (5531-5666 s) is the keeper"
-      },
+      "exclude": {},
       "dims_m": [
         12.9,
         8.4,
