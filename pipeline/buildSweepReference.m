@@ -17,7 +17,10 @@ function buildSweepReference(room, anyTake)
 %                              derives rtRef from it); drrDb, distanceM (tape),
 %                              blockLenMsSuggested; source = 'array sweeps'
 %   <room>_arrayReference.mat  median T20 / DRR over the marker sweeps, per-
-%                              sweep values, and the no-marker values
+%                              sweep values, and the no-marker values; DRR
+%                              also under the paper's window (drrDbPaper) and
+%                              the reverberant spectral shape (revBandsDb), as
+%                              buildArrayReference writes them
 ensurePaths();
 root = fileparts(fileparts(mfilename('fullpath')));
 cfg = jsondecode(fileread(fullfile(root,'config','rooms.json')));
@@ -25,15 +28,21 @@ S = load(fullfile(root,'data','rooms',[room '_arraySweeps.mat']));
 P = prepAriaTake(anyTake, 'runWpe', false, 'blockLenMs', 3000);   % 3 s FFT: the whole IR
 fs = P.fs;
 names = cellstr(S.names); mk = logical(S.markers(:));
-n = numel(names); rt = zeros(n,7); drr = zeros(n,1); xs = cell(n,1);
+W = drrWindows();
+n = numel(names); rt = zeros(n,7); drr = zeros(n,numel(W)); lev = zeros(n,7); xs = cell(n,1);
 for k = 1:n
     x = chEncodeArrayIr(P, S.IRs(:,:,k));
     xs{k} = x(:,1);
-    [v, fAx] = getT20Ita(xs{k}, fs, 1, [125 8000]);
-    dv = getDrr(xs{k}, fs, 1, 2.5, [100 8000]);
-    rt(k,:) = v(:).'; drr(k) = dv(1);
-    fprintf('  %-32s markers %d  T20 %s  DRR %+6.1f dB\n', names{k}, mk(k), mat2str(round(rt(k,:),2)), drr(k));
+    [v, fAx, iEnd] = getT20Ita(xs{k}, fs, 1, [125 8000]);
+    for w = 1:numel(W)
+        [dd, t0] = getDrr(xs{k}, fs, W(w).preMs, W(w).postMs, W(w).bandHz); drr(k,w) = dd(1);
+    end
+    L = revBandLevels(xs{k}, fs, t0, iEnd, fAx);
+    rt(k,:) = v(:).'; lev(k,:) = L - mean(L,'omitnan');
+    fprintf('  %-32s markers %d  T20 %s  DRR %+6.1f dB (paper window %+6.1f)\n', names{k}, mk(k), ...
+        mat2str(round(rt(k,:),2)), drr(k,1), drr(k,2));
 end
+drrPaper = drr(:,2); drr = drr(:,1);
 rtMed = median(rt(mk,:),1); drrMed = median(drr(mk));
 [~, iRep] = min(sum((log(rt(mk,:)) - log(rtMed)).^2, 2));
 iMk = find(mk); iRep = iMk(iRep);
@@ -62,6 +71,8 @@ else
     save(refFile, '-struct', 'ref', '-v7');
 end
 aR = struct('rt20Bands', rtMed, 'drrDb', drrMed, 'rt20PerTake', rt(mk,:), 'drrPerTake', drr(mk), ...
+    'drrDbPaper', median(drrPaper(mk)), 'drrPerTakePaper', drrPaper(mk), ...
+    'revBandsDb', median(lev(mk,:),1,'omitnan'), 'revBandsPerTake', lev(mk,:), ...
     'takes', {names(mk)}, 'rt20NoMarkers', rt(~mk,:), 'drrNoMarkers', drr(~mk), ...
     'noMarkerSweeps', {names(~mk)}, 'fBands', fAx(:).', ...
     'info', sprintf(['Array reference for the %s room from %d standalone array-side sweeps with the ' ...

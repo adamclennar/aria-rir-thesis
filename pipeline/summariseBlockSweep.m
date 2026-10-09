@@ -4,7 +4,8 @@ function T = summariseBlockSweep(takes)
 % (<take>_blk<ms>.mat, from run_blocksweep.sh) - against the room
 % references, and write one row per (take, block length, condition) to
 % results/blocksweep/blocksweep.csv: the summary T20 errors (mean absolute,
-% median, rms), every band's T20 and error, and the DRR error.
+% median, rms), every band's T20 and error, the DRR error under both
+% windows (drrWindows.m) and the octave-band RMS error.
 %
 % Everything is re-scored from the saved RIRs rather than read from the run
 % logs, so a reference rebuilt after a run is picked up, and the numbers do
@@ -32,15 +33,17 @@ for t = 1:numel(takes)
             if startsWith(c{m}, 'blind'); e = P.prePad; else; e = P.directPathSmp; end
             S = scoreRir(P, R.rir.(c{m}), e);
             rows(end+1, :) = [{takes{t}, room, R.blockLenMs, R.blockLenMs/rule, c{m}, ...
-                S.rtErrMean, S.rtErrMedian, S.rtErrRms, S.drrDb, S.drrErr}, ...
-                num2cell(S.rt), num2cell(S.rtRef), num2cell(S.bandErr)]; %#ok<AGROW>
+                S.rtErrMean, S.rtErrMedian, S.rtErrRms, S.drrDb, S.drrErr, ...
+                S.drrDbPaper, S.drrErrPaper, S.rmsErrMeanDb}, ...
+                num2cell(S.rt), num2cell(S.rtRef), num2cell(S.bandErr), num2cell(S.rmsBandErrDb)]; %#ok<AGROW>
         end
         fprintf('[%s] %5d ms (%.2fx rule) scored\n', takes{t}, R.blockLenMs, R.blockLenMs/rule);
     end
 end
 bands = arrayfun(@(f) sprintf('%d', round(f)), P.fAxM, 'uni', 0);
 T = cell2table(rows, 'VariableNames', [{'take','room','blockLenMs','blockFactor','condition', ...
-    'rtErrMean','rtErrMedian','rtErrRms','drrDb','drrErr'}, strcat('T20_', bands), strcat('ref_', bands), strcat('err_', bands)]);
+    'rtErrMean','rtErrMedian','rtErrRms','drrDb','drrErr','drrDbPaper','drrErrPaper','rmsErrMeanDb'}, ...
+    strcat('T20_', bands), strcat('ref_', bands), strcat('err_', bands), strcat('rmsErr_', bands)]);
 outDir = fullfile(root, 'results', 'blocksweep');
 if ~exist(outDir, 'dir'); mkdir(outDir); end
 writetable(T, fullfile(outDir, 'blocksweep.csv'));

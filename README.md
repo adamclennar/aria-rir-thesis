@@ -52,7 +52,8 @@ provenance, not something readers can run. The two stages share no code;
 | `runTake.m`, `runAll.m` | the paper's four conditions (informed/blind x motion-aware/omni) on one take / all takes |
 | `prepAriaTake.m` | loads a take and sets everything up as `estimateRirs.m` does |
 | `rlsFit.m`, `bfEstimate.m`, `getWpe.m`, `defaultWpeParams.m` | thin wrappers calling the upstream functions with the published parameters |
-| `scoreRir.m`, `rescore.m` | T20 / DRR scoring against the room references |
+| `scoreRir.m`, `rescore.m` | T20, DRR and octave-band RMS scoring against the room references; `rescore` re-scores saved RIRs into `results/pipeline/summary.csv` |
+| `drrWindows.m`, `revBandLevels.m` | the two DRR direct-sound windows (paper's and this repo's), and the reverberant part's octave-band levels behind the RMS error |
 | `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
 | `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
 
@@ -108,7 +109,24 @@ python build/build_array_sweeps.py lshape        # L-shape array sweeps
 matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','meeting'})"
 matlab -batch "cd pipeline; buildSweepReference('lshape','lshape_maleSpeech_static')"
 ./run_takes.sh <take> [<take> ...]               # stage 2, one MATLAB process per take
+matlab -batch "cd pipeline; rescore()"           # every saved result -> results/pipeline/summary.csv
 ```
+
+## Scoring
+
+The paper's three metrics, on the order-0 (omnidirectional) channel:
+
+* **T20** per octave band, 125 Hz-8 kHz (ITA toolbox, Lundeby), as a relative
+  error against the omni reference.
+* **DRR**, scored under two direct-sound windows (`drrWindows.m`): the
+  paper's (peak -0.5 to +1 ms; `drrDbPaper`, `drrErrPaper`) and a wider one
+  (-1 to +2.5 ms; `drrDb`, `drrErr`). Compare with the paper using its window;
+  `drrWindows.m` explains why the wider one is used for this data's own
+  comparisons.
+* **Octave-band RMS**: the level of the reverberant part per band (the
+  quantity the paper's BRIR synthesis matches), against the array reference.
+  Blind estimates have an arbitrary absolute gain, so the error is scored on
+  the spectral shape, with the mean over bands removed.
 
 ## Where this deviates from the paper
 
@@ -121,8 +139,9 @@ implemented.
   octave-band T20 of the omni reference, because the RLS returns half a block
   of RIR (an oracle input; see below).
 * **References**: T20 from an omni on a stand at the listening position; DRR
-  from array-side sweeps (median over takes), because a free-field omni reads
-  several dB higher than a head-worn array at the same spot.
+  and the RMS spectral shape from array-side sweeps (median over takes),
+  because a free-field omni reads several dB higher than a head-worn array at
+  the same spot.
 * **Pose**: Aria MPS closed-loop SLAM (no OptiTrack in four of the five rooms).
 * **Clock rate**: the laptop and the glasses both sample at a nominal 48 kHz
   from independent clocks; no drift correction is applied (see

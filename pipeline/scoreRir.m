@@ -29,8 +29,20 @@ function S = scoreRir(P, rir, expectSmp)
 %                  The reference is a free-field omni and the estimate is the
 %                  array's order-0 channel on a head, so a bias of a decibel
 %                  or two is expected; compare conditions, not absolutes.
+%   S.drrDbPaper, S.drrErrPaper  the same two under the paper's direct-sound
+%                  window. drrDb/drrErr are the repo window; drrWindows.m
+%                  defines both and says when to use which.
+%   S.rmsBandErrDb octave-band RMS error (the paper's Fig. 8): level of the
+%                  reverberant part per band (revBandLevels) minus the array
+%                  reference's, with the mean over bands removed -- a blind
+%                  estimate's absolute gain is arbitrary, and stimuli are
+%                  loudness-normalised anyway, so only the spectral SHAPE is
+%                  scored. Positive = too much energy in that band.
+%   S.rmsErrMeanDb mean |rmsBandErrDb|
+%   S.rmsGainDb    the removed broadband offset (meaningless across
+%                  conditions; kept so nothing is hidden)
 x = real(rir(:,1));
-[rt, fAx] = getT20Ita(x, P.fs, 1, [125 8000]);
+[rt, fAx, iEnd] = getT20Ita(x, P.fs, 1, [125 8000]);
 e = 100*(rt(:).' - P.rtRef)./P.rtRef;
 S.fAx = fAx(:).'; S.rt = rt(:).'; S.rtRef = P.rtRef;
 S.bandErr = e;
@@ -56,11 +68,25 @@ hi = min(numel(x), expectSmp + halfWin);
 [vD, iD] = max(abs(x(lo:hi)));
 S.directMs = (lo + iD - 1)/P.fs*1000;
 S.directRelMaxDb = 20*log10(vD/max(abs(x)));
-try
-    dv = getDrr(x, P.fs, 1, 2.5, [100 8000]); S.drrDb = dv(1);
-catch
-    S.drrDb = NaN;
+t0 = NaN;
+for w = drrWindows()
+    try
+        [dv, t0] = getDrr(x, P.fs, w.preMs, w.postMs, w.bandHz); v = dv(1);
+    catch
+        v = NaN;
+    end
+    S.(['drrDb' w.suffix]) = v;
+    S.(['drrErr' w.suffix]) = v - P.(['drrRef' w.suffix]);
 end
-S.drrErr = S.drrDb - P.drrRef;
 S.drrErrOmni = S.drrDb - P.drrRefOmni;
+
+S.revLevelDb = revBandLevels(x, P.fs, t0, iEnd, fAx);
+if isempty(P.revRefDb)
+    d = NaN(size(S.revLevelDb));
+else
+    d = S.revLevelDb - P.revRefDb;
+end
+S.rmsGainDb = mean(d, 'omitnan');
+S.rmsBandErrDb = d - S.rmsGainDb;
+S.rmsErrMeanDb = mean(abs(S.rmsBandErrDb), 'omitnan');
 end

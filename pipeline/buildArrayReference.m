@@ -18,6 +18,13 @@ function buildArrayReference(rooms)
 % Writes data/rooms/<room>_arrayReference.mat:
 %   rt20Bands, drrDb        median over takes -- use these
 %   rt20PerTake, drrPerTake  every take, for inspection
+%   drrDbPaper, drrPerTakePaper  the same under the paper's direct-sound
+%                           window (drrWindows.m)
+%   revBandsDb              median over takes of the reverberant part's
+%                           octave-band levels (revBandLevels), each take's
+%                           mean over bands removed first: the spectral shape
+%                           scoreRir's RMS error is measured against
+%   revBandsPerTake         every take's mean-removed levels
 %   takes, fBands, fs, info
 ensurePaths();
 root = fileparts(fileparts(mfilename('fullpath')));
@@ -25,38 +32,41 @@ cfg = jsondecode(fileread(fullfile(root,'config','rooms.json')));
 if nargin < 1 || isempty(rooms)
     rooms = fieldnames(cfg.rooms)';
 end
+W = drrWindows();
 
 for r = 1:numel(rooms)
     room = rooms{r};
     f = dir(fullfile(root,'data','rooms',[room '_*Speech*.mat']));
     stems = erase({f.name},'.mat');
-    rt = []; drr = []; used = {};
+    rt = []; drr = []; lev = []; used = {};
     for t = 1:numel(stems)
         d = load(fullfile(root,'data','rooms',[stems{t} '.mat']),'IRs');
         if ~isfield(d,'IRs'); continue; end
         P = prepAriaTake(stems{t}, 'runWpe', false);
         x = chEncodeArrayIr(P, d.IRs);
-        [v, fAx] = getT20Ita(x(:,1), P.fs, 1, [125 8000]);
-        dv = getDrr(x(:,1), P.fs, 1, 2.5, [100 8000]);
-        rt(end+1,:) = v(:).'; drr(end+1,1) = dv(1); used{end+1} = stems{t}; %#ok<AGROW>
-        fprintf('  %-32s T20 %s  DRR %+6.1f dB\n', stems{t}, mat2str(round(v(:).',2)), dv(1));
+        [v, fAx, iEnd] = getT20Ita(x(:,1), P.fs, 1, [125 8000]);
+        dv = zeros(1, numel(W));
+        for w = 1:numel(W)
+            [dd, t0] = getDrr(x(:,1), P.fs, W(w).preMs, W(w).postMs, W(w).bandHz); dv(w) = dd(1);
+        end
+        L = revBandLevels(x(:,1), P.fs, t0, iEnd, fAx);
+        rt(end+1,:) = v(:).'; drr(end+1,:) = dv; lev(end+1,:) = L - mean(L,'omitnan'); used{end+1} = stems{t}; %#ok<AGROW>
+        fprintf('  %-32s T20 %s  DRR %+6.1f dB (paper window %+6.1f)\n', stems{t}, mat2str(round(v(:).',2)), dv(1), dv(2));
     end
     if isempty(used)
         fprintf('[%s] no takes with an IRs field, skipped\n', room); continue
     end
-    rtMed = median(rt,1); drrMed = median(drr);
-    fprintf('[%s] %d takes | MEDIAN T20 %s  DRR %+.1f dB (mean %+.1f, spread %.1f dB)\n\n', ...
-        room, numel(used), mat2str(round(rtMed,2)), drrMed, mean(drr), max(drr)-min(drr));
+    drrMed = median(drr, 1);
+    fprintf('[%s] %d takes | MEDIAN T20 %s  DRR %+.1f dB (mean %+.1f, spread %.1f dB) | paper window %+.1f dB\n\n', ...
+        room, numel(used), mat2str(round(median(rt,1),2)), drrMed(1), mean(drr(:,1)), max(drr(:,1))-min(drr(:,1)), drrMed(2));
     info = sprintf(['Array reference for the %s room: the CH omnidirectional channel of the ' ...
         'in-take sweep IR, pooled over %d takes measured from the same mark. Median across ' ...
         'takes; per-take values in rt20PerTake/drrPerTake. Built %s by buildArrayReference.m.'], ...
         room, numel(used), datestr(now,'yyyy-mm-dd'));
-    save(fullfile(root,'data','rooms',[room '_arrayReference.mat']), ...
-        'rtMed','drrMed','rt','drr','used','fAx','info','-v7');
-    % friendlier field names
-    S = load(fullfile(root,'data','rooms',[room '_arrayReference.mat']));
-    out = struct('rt20Bands',S.rtMed,'drrDb',S.drrMed,'rt20PerTake',S.rt,'drrPerTake',S.drr, ...
-                 'takes',{S.used},'fBands',S.fAx(:).','info',S.info);
+    out = struct('rt20Bands',median(rt,1),'drrDb',drrMed(1),'rt20PerTake',rt,'drrPerTake',drr(:,1), ...
+                 'drrDbPaper',drrMed(2),'drrPerTakePaper',drr(:,2), ...
+                 'revBandsDb',median(lev,1,'omitnan'),'revBandsPerTake',lev, ...
+                 'takes',{used},'fBands',fAx(:).','info',info);
     save(fullfile(root,'data','rooms',[room '_arrayReference.mat']),'-struct','out','-v7');
 end
 end
