@@ -32,15 +32,24 @@ function S = scoreRir(P, rir, expectSmp)
 %   S.drrDbPaper, S.drrErrPaper  the same two under the paper's direct-sound
 %                  window. drrDb/drrErr are the repo window; drrWindows.m
 %                  defines both and says when to use which.
-%   S.rmsBandErrDb octave-band RMS error (the paper's Fig. 8): level of the
-%                  reverberant part per band (revBandLevels) minus the array
-%                  reference's, with the mean over bands removed -- a blind
-%                  estimate's absolute gain is arbitrary, and stimuli are
-%                  loudness-normalised anyway, so only the spectral SHAPE is
-%                  scored. Positive = too much energy in that band.
-%   S.rmsErrMeanDb mean |rmsBandErrDb|
-%   S.rmsGainDb    the removed broadband offset (meaningless across
-%                  conditions; kept so nothing is hidden)
+%   S.rmsMicErrDb  tonal-balance (octave-band RMS) error AT THE MICROPHONES,
+%                  numMics x numBands: the estimate decoded to each
+%                  microphone (chDecodeToMics), the spectral shape of its
+%                  reverberant part (micRevShape: band levels, mean over bands
+%                  removed) minus the measured microphone's (the array
+%                  reference's revShapeMics). Only the shape is scored -- a
+%                  blind estimate's absolute gain is arbitrary, and stimuli
+%                  are loudness-normalised anyway. Positive = too much energy
+%                  in that band.
+%   S.rmsBandErrDb    signed error per band, mean over the microphones (bias)
+%   S.rmsBandAbsErrDb |error| per band, mean over the microphones
+%   S.rmsErrMeanDb    |error|, mean over microphones and bands
+%   S.rmsOmniBandErrDb, S.rmsOmniErrMeanDb  the paper's definition (Fig. 8),
+%                  the same shape error on the omni CH channel against the
+%                  CH-encoded reference. Kept for comparison only: on this
+%                  7-mic array, under movement, the omni channel of the RLS
+%                  estimate and of the separately regularised encoding
+%                  disagree where the microphone signals agree.
 x = real(rir(:,1));
 [rt, fAx, iEnd] = getT20Ita(x, P.fs, 1, [125 8000]);
 e = 100*(rt(:).' - P.rtRef)./P.rtRef;
@@ -80,13 +89,26 @@ for w = drrWindows()
 end
 S.drrErrOmni = S.drrDb - P.drrRefOmni;
 
-S.revLevelDb = revBandLevels(x, P.fs, t0, iEnd, fAx);
-if isempty(P.revRefDb)
-    d = NaN(size(S.revLevelDb));
+% tonal balance at the microphones: decode the estimate to what each
+% microphone should record at the reference pose and compare each one's
+% spectral shape with the measured one
+if isempty(P.revRefMics)
+    E = NaN(P.numMics, numel(fAx));
 else
-    d = S.revLevelDb - P.revRefDb;
+    E = micRevShape(chDecodeToMics(P, rir), P.fs, fAx) - P.revRefMics;
 end
-S.rmsGainDb = mean(d, 'omitnan');
-S.rmsBandErrDb = d - S.rmsGainDb;
-S.rmsErrMeanDb = mean(abs(S.rmsBandErrDb), 'omitnan');
+S.rmsMicErrDb = E;
+S.rmsBandErrDb = mean(E, 1, 'omitnan');
+S.rmsBandAbsErrDb = mean(abs(E), 1, 'omitnan');
+S.rmsErrMeanDb = mean(abs(E), 'all', 'omitnan');
+
+% the paper's definition, on the omni channel: kept for comparison only
+L = revBandLevels(x, P.fs, t0, iEnd, fAx);
+if isempty(P.revRefDb)
+    d = NaN(size(L));
+else
+    d = L - P.revRefDb; d = d - mean(d, 'omitnan');
+end
+S.rmsOmniBandErrDb = d;
+S.rmsOmniErrMeanDb = mean(abs(d), 'omitnan');
 end

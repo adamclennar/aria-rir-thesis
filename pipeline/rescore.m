@@ -2,9 +2,11 @@ function T = rescore(takes)
 % Re-score saved pipeline results without re-running WPE, the beamformer or
 % the RLS. Reads results/pipeline/<take>.mat, recomputes the metrics with the
 % CURRENT scoreRir, and writes results/pipeline/summary.csv: one row per
-% (take, condition), with DRR under both windows (drrWindows.m), the RMS
-% error, and the per-band T20 error (t20Err_<Hz>, %) and RMS error
-% (rmsErr_<Hz>, dB) the paper's Figs. 7 and 8 are drawn from.
+% (take, condition), with DRR under both windows (drrWindows.m), the
+% tonal-balance (RMS) error at the microphones (rmsErrMeanDb; the paper's
+% omni-channel version as rmsOmniErrMeanDb), and per band the T20 error
+% (t20Err_<Hz>, %) and the RMS error at the microphones, signed (rmsErr_<Hz>)
+% and absolute (rmsAbsErr_<Hz>), both averaged over the microphones.
 %
 % Why this exists: the direct-path check in the first version of scoreRir was
 % the RIR's global maximum, which only finds the direct arrival in a dry room.
@@ -44,16 +46,16 @@ for t = 1:numel(takes)
             S.drrErr, S.drrErrPaper, S.rmsErrMeanDb, conv.isConverged);
         rows(end+1,:) = [{takes{t}, c{k}, R.blockLenMs, S.directMs, S.directRelMaxDb, S.peakMs, ...
                          S.rtErrMedian, S.rtErrMean, S.rtErrRms, S.rtErrSigned, S.drrDb, S.drrErr, S.drrErrOmni, ...
-                         S.drrDbPaper, S.drrErrPaper, S.rmsErrMeanDb, ...
+                         S.drrDbPaper, S.drrErrPaper, S.rmsErrMeanDb, S.rmsOmniErrMeanDb, ...
                          conv.isConverged, R.doaWorldMedianDeg, R.doaWorldSpreadDeg, R.doaWorldWithin15Pct}, ...
-                         num2cell(S.bandErr), num2cell(S.rmsBandErrDb)]; %#ok<AGROW>
+                         num2cell(S.bandErr), num2cell(S.rmsBandErrDb), num2cell(S.rmsBandAbsErrDb)]; %#ok<AGROW>
     end
 end
 bands = arrayfun(@(f) sprintf('%d', round(f)), P.fAxM, 'uni', 0);
 T = cell2table(rows, 'VariableNames', [{'take','condition','blockLenMs','directMs','directRelMaxDb', ...
     'globalMaxMs','rtErrMedian','rtErrMean','rtErrRms','rtErrSigned','drrDb','drrErr','drrErrOmni', ...
-    'drrDbPaper','drrErrPaper','rmsErrMeanDb','converged', ...
-    'doaWorldMedianDeg','doaWorldStdDeg','doaWithin15Pct'}, strcat('t20Err_', bands), strcat('rmsErr_', bands)]);
+    'drrDbPaper','drrErrPaper','rmsErrMeanDb','rmsOmniErrMeanDb','converged', ...
+    'doaWorldMedianDeg','doaWorldStdDeg','doaWithin15Pct'}, strcat('t20Err_', bands), strcat('rmsErr_', bands), strcat('rmsAbsErr_', bands)]);
 writetable(T, fullfile(resDir,'summary.csv'));
 fprintf('\nwrote %s\n', fullfile(resDir,'summary.csv'));
 end

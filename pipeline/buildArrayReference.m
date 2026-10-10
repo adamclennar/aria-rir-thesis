@@ -25,6 +25,12 @@ function buildArrayReference(rooms)
 %                           mean over bands removed first: the spectral shape
 %                           scoreRir's RMS error is measured against
 %   revBandsPerTake         every take's mean-removed levels
+%   revShapeMics            numMics x numBands: the same shape per MICROPHONE,
+%                           from the measured 7-channel IR itself (micRevShape,
+%                           no CH encoding), median over takes -- what
+%                           scoreRir's tonal-balance (RMS) error is scored
+%                           against
+%   revShapeMicsPerTake     numTakes x numMics x numBands
 %   takes, fBands, fs, info
 ensurePaths();
 root = fileparts(fileparts(mfilename('fullpath')));
@@ -38,7 +44,7 @@ for r = 1:numel(rooms)
     room = rooms{r};
     f = dir(fullfile(root,'data','rooms',[room '_*Speech*.mat']));
     stems = erase({f.name},'.mat');
-    rt = []; drr = []; lev = []; used = {};
+    rt = []; drr = []; lev = []; micS = {}; used = {};
     for t = 1:numel(stems)
         d = load(fullfile(root,'data','rooms',[stems{t} '.mat']),'IRs');
         if ~isfield(d,'IRs'); continue; end
@@ -50,6 +56,7 @@ for r = 1:numel(rooms)
             [dd, t0] = getDrr(x(:,1), P.fs, W(w).preMs, W(w).postMs, W(w).bandHz); dv(w) = dd(1);
         end
         L = revBandLevels(x(:,1), P.fs, t0, iEnd, fAx);
+        micS{end+1} = reshape(micRevShape(d.IRs, P.fs, fAx), [1 size(d.IRs,2) numel(fAx)]); %#ok<AGROW>
         rt(end+1,:) = v(:).'; drr(end+1,:) = dv; lev(end+1,:) = L - mean(L,'omitnan'); used{end+1} = stems{t}; %#ok<AGROW>
         fprintf('  %-32s T20 %s  DRR %+6.1f dB (paper window %+6.1f)\n', stems{t}, mat2str(round(v(:).',2)), dv(1), dv(2));
     end
@@ -57,6 +64,7 @@ for r = 1:numel(rooms)
         fprintf('[%s] no takes with an IRs field, skipped\n', room); continue
     end
     drrMed = median(drr, 1);
+    micS = cat(1, micS{:});                                     % numTakes x numMics x numBands
     fprintf('[%s] %d takes | MEDIAN T20 %s  DRR %+.1f dB (mean %+.1f, spread %.1f dB) | paper window %+.1f dB\n\n', ...
         room, numel(used), mat2str(round(median(rt,1),2)), drrMed(1), mean(drr(:,1)), max(drr(:,1))-min(drr(:,1)), drrMed(2));
     info = sprintf(['Array reference for the %s room: the CH omnidirectional channel of the ' ...
@@ -66,6 +74,8 @@ for r = 1:numel(rooms)
     out = struct('rt20Bands',median(rt,1),'drrDb',drrMed(1),'rt20PerTake',rt,'drrPerTake',drr(:,1), ...
                  'drrDbPaper',drrMed(2),'drrPerTakePaper',drr(:,2), ...
                  'revBandsDb',median(lev,1,'omitnan'),'revBandsPerTake',lev, ...
+                 'revShapeMics',reshape(median(micS,1,'omitnan'), size(micS,2), size(micS,3)), ...
+                 'revShapeMicsPerTake',micS, ...
                  'takes',{used},'fBands',fAx(:).','info',info);
     save(fullfile(root,'data','rooms',[room '_arrayReference.mat']),'-struct','out','-v7');
 end

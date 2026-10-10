@@ -45,7 +45,7 @@ if ~exist(refFile,'file')
     end
     P.refFile = ''; P.rirRef = []; P.rtRef = []; P.fAxM = []; P.drrRefOmni = NaN;
     P.drrRef = NaN; P.rtRefArray = []; P.drrRefSource = 'none'; P.distanceM = NaN;
-    P.drrRefPaper = NaN; P.revRefDb = [];
+    P.drrRefPaper = NaN; P.revRefDb = []; P.revRefMics = [];
     P.blockLenMs = opts.blockLenMs;
 else
 refS = load(refFile);
@@ -61,12 +61,14 @@ P.drrRefOmni = double(refS.drrDb);
 % against it made every condition look like it under-estimated DRR by 4-10 dB
 % when the true errors are within a decibel or two. RT still comes from the
 % omni: a decay slope is a room property and transfers between instruments.
-% The octave-band RMS error is scored against the array reference too, for
-% the same reason (same microphones, same head): its spectral shape is
-% revBandsDb. A reference built before these fields existed leaves them
-% NaN / empty, so the scores come out NaN rather than wrong.
+% The tonal-balance (RMS) error is scored against the array reference too,
+% for the same reason (same microphones, same head), and at the microphones:
+% revShapeMics is each microphone's measured spectral shape. revBandsDb is
+% the omni-channel shape, kept only for the paper-style comparison. A
+% reference built before these fields existed leaves them NaN / empty, so
+% the scores come out NaN rather than wrong.
 arrayRefFile = fullfile(root,'data','rooms',[P.room '_arrayReference.mat']);
-P.drrRefPaper = NaN; P.revRefDb = [];
+P.drrRefPaper = NaN; P.revRefDb = []; P.revRefMics = [];
 if exist(arrayRefFile,'file')
     aR = load(arrayRefFile);
     P.drrRef = double(aR.drrDb);
@@ -74,6 +76,7 @@ if exist(arrayRefFile,'file')
     P.drrRefSource = sprintf('array, pooled over %d takes', numel(aR.drrPerTake));
     if isfield(aR,'drrDbPaper'); P.drrRefPaper = double(aR.drrDbPaper); end
     if isfield(aR,'revBandsDb'); P.revRefDb = double(aR.revBandsDb(:)).'; end
+    if isfield(aR,'revShapeMics'); P.revRefMics = double(aR.revShapeMics); end
 else
     P.drrRef = P.drrRefOmni;
     P.rtRefArray = [];

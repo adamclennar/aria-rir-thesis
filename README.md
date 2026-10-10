@@ -54,6 +54,7 @@ provenance, not something readers can run. The two stages share no code;
 | `rlsFit.m`, `bfEstimate.m`, `getWpe.m`, `defaultWpeParams.m` | thin wrappers calling the upstream functions with the published parameters |
 | `scoreRir.m`, `rescore.m` | T20, DRR and octave-band RMS scoring against the room references; `rescore` re-scores saved RIRs into `results/pipeline/summary.csv` |
 | `drrWindows.m`, `revBandLevels.m` | the two DRR direct-sound windows (paper's and this repo's), and the reverberant part's octave-band levels behind the RMS error |
+| `chDecodeToMics.m`, `micRevShape.m` | an estimate decoded to the 7 microphones, and each microphone's reverberant spectral shape: the tonal-balance error is scored there |
 | `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
 | `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
 
@@ -114,7 +115,8 @@ matlab -batch "cd pipeline; rescore()"           # every saved result -> results
 
 ## Scoring
 
-The paper's three metrics, on the order-0 (omnidirectional) channel:
+The paper's three metrics, T20 and DRR on the order-0 (omnidirectional) channel
+and tonal balance at the microphones:
 
 * **T20** per octave band, 125 Hz-8 kHz (ITA toolbox, Lundeby), as a relative
   error against the omni reference.
@@ -123,10 +125,15 @@ The paper's three metrics, on the order-0 (omnidirectional) channel:
   (-1 to +2.5 ms; `drrDb`, `drrErr`). Compare with the paper using its window;
   `drrWindows.m` explains why the wider one is used for this data's own
   comparisons.
-* **Octave-band RMS**: the level of the reverberant part per band (the
-  quantity the paper's BRIR synthesis matches), against the array reference.
-  Blind estimates have an arbitrary absolute gain, so the error is scored on
-  the spectral shape, with the mean over bands removed.
+* **Tonal balance (octave-band RMS)**: the level of the reverberant part per
+  band (the quantity the paper's BRIR synthesis matches), scored **at the
+  microphones**: each estimate is decoded to what the 7 microphones should
+  record at the reference pose and compared with the measured microphone IRs.
+  Blind estimates have an arbitrary absolute gain, so only the spectral shape
+  is scored (the mean over bands removed). The paper scores this on the omni
+  CH channel instead; on this array, under movement, that comparison is
+  distorted by the CH encoding (the informed estimate came out worse than the
+  blind one), so it is kept only as `rmsOmniErrMeanDb`.
 
 ## Where this deviates from the paper
 
