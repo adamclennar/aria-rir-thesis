@@ -8,7 +8,9 @@ Writes data/rooms/<room>_reference.mat --
 
     IRs [N x 1]          3 s room impulse response, mean of the sweeps,
                          direct peak at 5 ms
-    IRsPerSweep [N x S]  the individual sweeps, aligned
+    IRsPerSweep [N x S]  the individual sweeps, each cut at its direct peak and
+                         then aligned to the first by cross-correlation (align_to)
+    sweepShiftsSmp [S]   the shift that alignment applied to each sweep
     fs, info
     fBands [7 x 1]       octave centres 125 Hz .. 8 kHz
     rt20Bands [7 x 1]    T20 per band (s) from Schroeder integration
@@ -93,6 +95,27 @@ def peak_sample(h, fs):
     return int(np.argmax(np.abs(h[:int(0.5 * fs)])))
 
 
+def align_to(ref, h, fs, max_lag_ms=1.0, win_s=0.05):
+    """h shifted by the lag (within +/-max_lag_ms) whose first win_s best
+    matches ref's. Returns (aligned h, shift in samples).
+
+    cut_at_peak puts each sweep's largest sample at PRE_S, but a direct peak
+    split across neighbouring samples of near-equal height can land on either
+    from one sweep to the next (small meeting room: two samples 2 apart at
+    1.00 and 0.99, so sweep 3 came out 2 samples late). Averaging sweeps
+    misaligned like that smears the high frequencies of the mean IR; aligning
+    on the whole first 50 ms, not on one sample, removes it."""
+    w, lim = int(win_s * fs), int(max_lag_ms / 1000 * fs)
+    lags = np.arange(-lim, lim + 1)
+    k = int(lags[np.argmax([np.dot(ref[:w], np.roll(h, s)[:w]) for s in lags])])
+    out = np.roll(h, k)
+    if k > 0:
+        out[:k] = 0
+    elif k < 0:
+        out[k:] = 0
+    return out, k
+
+
 def drr_db(ir, fs, pre_ms=1.0, post_ms=2.5):
     """Direct-to-reverberant ratio: energy in [peak-1 ms, peak+2.5 ms] over
     everything after it. Same window as the pipeline's getDrr."""
@@ -138,6 +161,10 @@ def build_room(room: str, out_dir: Path) -> dict:
         h = deconvolve(y, x, fs)
         dists.append((peak_sample(h, fs) / fs * 1000 - CHAIN_MS) / 1000 * C)
         irs.append(cut_at_peak(h, fs))
+    shifts = [0]
+    for j in range(1, len(irs)):
+        irs[j], s = align_to(irs[0], irs[j], fs)
+        shifts.append(s)
     irs = np.stack(irs, 1)
     dist = float(np.mean(dists))
     dist_meas = rc.get("distance_m")
@@ -149,7 +176,7 @@ def build_room(room: str, out_dir: Path) -> dict:
     rt = np.array(rt)
     blk = int(np.ceil(2 * np.nanmax(rt) / 0.5) * 500)
     drr = drr_db(ir, fs)
-    print(f"== {room}: {irs.shape[1]} sweeps, first-50 ms consistency {np.min(cons):.3f}; "
+    print(f"== {room}: {irs.shape[1]} sweeps (aligned by {shifts} samples), first-50 ms consistency {np.min(cons):.3f}; "
           f"T20 " + " ".join(f"{int(f)}:{r:.2f}" for f, r in zip(F_BANDS, rt)) +
           f" s (decay range above noise {min(margin):.0f}-{max(margin):.0f} dB) -> blockLenMs >= {blk}; "
           f"DRR {drr:+.1f} dB, distance {dist:.2f} m" +
@@ -165,8 +192,9 @@ def build_room(room: str, out_dir: Path) -> dict:
         "IRs": ir[:, None], "IRsPerSweep": irs, "fs": fs, "info": info,
         "fBands": F_BANDS[:, None], "rt20Bands": rt[:, None], "blockLenMsSuggested": float(blk),
         "drrDb": drr, "distanceM": dist, "distanceMeasuredM": float(dist_meas) if dist_meas else np.nan,
+        "sweepShiftsSmp": np.array(shifts, float)[:, None],
     }, oned_as="column")
-    return {"rt20": rt.tolist(), "blockLenMsSuggested": blk, "sweep_consistency": cons,
+    return {"rt20": rt.tolist(), "blockLenMsSuggested": blk, "sweep_consistency": cons, "sweep_shifts_smp": shifts,
             "drrDb": drr, "distanceM": dist, "distanceMeasuredM": dist_meas,
             "distancePerSweep": dists}
 
