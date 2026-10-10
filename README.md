@@ -58,6 +58,14 @@ provenance, not something readers can run. The two stages share no code;
 | `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
 | `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
 
+**Analysis -- `analysis/` (results -> tables and figures)**
+
+Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MATLAB.
+
+| file | role |
+|---|---|
+| `reproduction.py` | RQ1: the paper's Table 2 (DRR, both windows), Fig. 7 (T20 per band) and Fig. 8 (RMS per band) per movement type, plus per-room errors -> `results/reproduction/` |
+
 **Configuration**: `config/rooms.json` defines the dataset -- every room, every
 take, the files each uses, and every exclusion with its reason.
 
@@ -111,6 +119,7 @@ matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','m
 matlab -batch "cd pipeline; buildSweepReference('lshape','lshape_maleSpeech_static')"
 ./run_takes.sh <take> [<take> ...]               # stage 2, one MATLAB process per take
 matlab -batch "cd pipeline; rescore()"           # every saved result -> results/pipeline/summary.csv
+python analysis/reproduction.py                  # RQ1 tables and figures -> results/reproduction/
 ```
 
 ## Scoring
