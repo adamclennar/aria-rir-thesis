@@ -7,7 +7,7 @@ function R = runTake(takeName, opts)
 % Saves results/pipeline/<take>.mat (RIRs, scores, per-block DoA, the
 % pseudo-reference) and prints one gate line per condition. On a static take
 % the informed motion-aware RIR is the build check: its peak must sit at
-% P.directPathSmp (~9.3 ms) and its T20 must track the SM57 reference.
+% P.directPathSmp (~9.3 ms) and its T20 must track the omni reference.
 arguments
     takeName (1,:) char
     opts.blockLenMs (1,1) double = NaN

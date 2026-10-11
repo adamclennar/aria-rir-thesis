@@ -5,8 +5,9 @@ function P = prepAriaTake(takeName, opts)
 %
 %   * ATFs are the CHiME Aria set (data/anechoic/ariaAtfsHorizontal.mat),
 %     48 directions on the horizontal ring, in the paper's file layout.
-%   * Block length comes from the measured RT of the room's SM57 reference
-%     (blockLenMsSuggested = smallest 500 ms multiple >= 2 x max T20),
+%   * Block length comes from the measured RT of the room's omni reference
+%     (blockLenMsSuggested = smallest 500 ms multiple >= 2 x the longest
+%     octave-band T20, 125 Hz - 8 kHz),
 %     because the RLS RIR window is half the block. Override with blockLenMs.
 %   * The reference is a single omni at the LISTENING position (not the
 %     paper's order-10 EMA), so RT and DRR are both scored, with the caveat
