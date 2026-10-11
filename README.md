@@ -143,7 +143,14 @@ The paper's three metrics, T20 and DRR on the order-0 (omnidirectional) channel
 and tonal balance at the microphones:
 
 * **T20** per octave band, 125 Hz-8 kHz (ITA toolbox, Lundeby), as a relative
-  error against the omni reference.
+  error against the omni reference. The comparison with the paper uses all
+  seven bands, as the paper does. Every later analysis (where accuracy is
+  lost, glasses-only operation, scene geometry) has one primary T20 measure:
+  the mean |relative error| in the 500 Hz and 1 kHz bands, the bands of
+  ISO 3382-1's mid-frequency reverberation time (T_mid). 500 Hz-2 kHz and
+  all seven bands are reported beside it as sensitivity checks. The extreme
+  bands carry large errors in every condition, which dilutes the differences
+  between conditions.
 * **DRR**, scored under two direct-sound windows (`drrWindows.m`): the
   paper's (peak -0.5 to +1 ms; `drrDbPaper`, `drrErrPaper`) and a wider one
   (-1 to +2.5 ms; `drrDb`, `drrErr`). Compare with the paper using its window;
