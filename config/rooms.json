@@ -530,6 +530,84 @@
         ],
         "speed_of_sound_m_s": 343.0
       }
+    },
+    "smallmeeting": {
+      "aria_dir": "small_meeting_room_aria",
+      "gt_dir": "small_meeting_room_GT",
+      "pose": "mps",
+      "sweep_source": "L2_Office_GT/Sweep_source.wav",
+      "sweeps": [
+        "Sweep_Received_1.wav",
+        "Sweep_Received_2.wav",
+        "Sweep_Received_3.wav"
+      ],
+      "noise_floor": null,
+      "distance_m": null,
+      "omni_mic_height_m": null,
+      "source_height_m": null,
+      "speech_span_s": [
+        52.5,
+        112.5
+      ],
+      "source_span_s": [
+        48.5,
+        114.5
+      ],
+      "sweep_span_s": [
+        29.625,
+        52.0
+      ],
+      "drive": {
+        "male": "Reverb_room_GT/full_male_drive_signal.wav",
+        "female": "Reverb_room_GT/full_female_drive_signal.wav"
+      },
+      "sm57": null,
+      "takes": {
+        "smallmeeting_maleSpeech_static": {
+          "vrs": "Small_meeting_room_male_static.vrs",
+          "speaker": "male",
+          "motion": "static"
+        },
+        "smallmeeting_maleSpeech_headMove": {
+          "vrs": "Small_meeting_room_male_head_moving.vrs",
+          "speaker": "male",
+          "motion": "head"
+        },
+        "smallmeeting_maleSpeech_fullMove": {
+          "vrs": "Small_meeting_room_male_full_moving.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "smallmeeting_maleSpeech_fullMove2": {
+          "vrs": "Small_meeting_room_male_full_moving_1.vrs",
+          "speaker": "male",
+          "motion": "full"
+        },
+        "smallmeeting_femaleSpeech_static": {
+          "vrs": "Small_meeting_room_female_static.vrs",
+          "speaker": "female",
+          "motion": "static"
+        },
+        "smallmeeting_femaleSpeech_headMove": {
+          "vrs": "Small_meeting_room_female_head_moving.vrs",
+          "speaker": "female",
+          "motion": "head"
+        },
+        "smallmeeting_femaleSpeech_fullMove": {
+          "vrs": "Small_meeting_room_female_full_moving.vrs",
+          "speaker": "female",
+          "motion": "full"
+        },
+        "smallmeeting_femaleSpeech_fullMove2": {
+          "vrs": "Small_meeting_room_female_full_moving_1.vrs",
+          "speaker": "female",
+          "motion": "full",
+          "note": "second female walking take by file name; recorded FIRST (14:21, before Small_meeting_room_female_full_moving.vrs at 14:23)"
+        }
+      },
+      "exclude": {},
+      "held_out": true,
+      "note": "Held-out room, recorded 2026-10-10 after the four main rooms were processed: nothing is tuned on it. Composite protocol as reverb/corridor (the drive files are byte-identical to those rooms'). No SM57 recorded. distance_m, omni_mic_height_m and dims_m to be added from the tape measurements."
     }
   }
 }
