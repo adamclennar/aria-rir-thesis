@@ -3,15 +3,18 @@
 Reproduction of the method of Deppisch et al. (2026), *Identification and
 Matching of Room Acoustics With Moving Head-Worn Microphone Arrays*
 (EURASIP JASMP 2026:30), on recordings made with Aria Gen 1 glasses in five
-rooms. The paper's algorithms (WPE dereverberation, MUSIC + MPDR beamformer,
+rooms, plus a sixth held out for testing. The paper's algorithms (WPE dereverberation, MUSIC + MPDR beamformer,
 motion-aware and omni RLS) run **unmodified** from the authors' code, pinned as
 a submodule; this repository supplies everything around them: turning the
 recordings into the paper's take format, the reference measurements, and the
 scoring.
 
-> **Status:** scaffold for the thesis codebase. The files are those that
-> produced the baseline results in the working repository; they have not yet
-> been run from here.
+> **Status:** the baseline (the paper's four conditions) has been run from
+> here on every take: the four composite-protocol rooms, the L-shape
+> pose-comparison takes and the held-out small meeting room. So has the
+> block-length sweep on the walking takes. The analyses beyond the
+> reproduction are still being ported from the working repository (see "Not
+> in here (yet)").
 
 ## Two stages
 
@@ -56,6 +59,7 @@ provenance, not something readers can run. The two stages share no code;
 | `drrWindows.m`, `revBandLevels.m` | the two DRR direct-sound windows (paper's and this repo's), and the reverberant part's octave-band levels behind the RMS error |
 | `chDecodeToMics.m`, `micRevShape.m` | an estimate decoded to the 7 microphones, and each microphone's reverberant spectral shape: the tonal-balance error is scored there |
 | `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
+| `summariseBlockSweep.m` (runs from `../run_blocksweep.sh`) | block-length sweep: each walking take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
 | `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
 
 **Analysis -- `analysis/` (results -> tables and figures)**
@@ -79,6 +83,11 @@ instead of SLAM), not as an additional room. Both versions of each walking
 take are trimmed to the span OptiTrack tracks completely, so the comparison
 is pure SLAM against pure OptiTrack.
 
+The small meeting room is the held-out room (`"held_out": true`): recorded
+after everything else was settled, so nothing was tuned on it. It follows the
+composite protocol but has no SM57 recording. Analyses report it separately
+from the four rooms.
+
 **External code**
 
 | path | what | licence |
@@ -89,12 +98,16 @@ is pure SLAM against pure OptiTrack.
 
 ## Not in here (yet)
 
-Deliberately excluded so this reproduces the paper and nothing more: the
-block-length sweep, world-frame DoA analysis, and the dereverberation and
-dose-response studies. Also
-excluded: the composite drive generator, because the files actually played
-(118 s) were not produced by it -- the played drive signals are part of the raw
-data.
+Still in the working repository, to be ported as the thesis needs them:
+world-frame DoA analysis and the perfect-front-end, dereverberation and
+dose-response studies (where the blind pipeline loses accuracy); block length
+from the glasses alone and the SLAM/OptiTrack pose comparison (glasses-only
+operation); and the scene-geometry estimates: SLAM room volume, vision
+distance and geometric DRR.
+
+Deliberately excluded: the composite drive generator, because the files
+actually played (118 s) were not produced by it -- the played drive signals
+are part of the raw data.
 
 ## Setup
 
@@ -115,10 +128,12 @@ python build/build_atf.py                        # ATFs
 python build/build_reference.py                  # omni references, all rooms
 python build/build_take.py                       # every take in config/rooms.json
 python build/build_array_sweeps.py lshape        # L-shape array sweeps
-matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','meeting'})"
+matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','meeting','smallmeeting'})"
 matlab -batch "cd pipeline; buildSweepReference('lshape','lshape_maleSpeech_static')"
 ./run_takes.sh <take> [<take> ...]               # stage 2, one MATLAB process per take
 matlab -batch "cd pipeline; rescore()"           # every saved result -> results/pipeline/summary.csv
+./run_blocksweep.sh                              # walking takes at 0.5x / 1.5x / 2x the rule block
+matlab -batch "cd pipeline; summariseBlockSweep()"   # -> results/blocksweep/blocksweep.csv
 python analysis/reproduction.py                  # RQ1 tables and figures -> results/reproduction/
 ```
 
