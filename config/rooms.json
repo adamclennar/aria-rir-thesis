@@ -613,7 +613,7 @@
       },
       "exclude": {},
       "held_out": true,
-      "note": "Held-out room, recorded 2026-10-10 after the four main rooms were processed: nothing is tuned on it. Composite protocol as reverb/corridor (the drive files are byte-identical to those rooms'). No SM57 recorded. distance_m, omni_mic_height_m and dims_m to be added from the tape measurements."
+      "note": "Recorded 2026-10-10, after the four other composite rooms were processed. Pooled with them wherever nothing is fitted or chosen; held out (the held_out flag) for whatever is: the glasses-only block rule, the geometry constants, the dereverberator design. Composite protocol as reverb/corridor (the drive files are byte-identical to those rooms'). No SM57 recorded. distance_m, omni_mic_height_m and dims_m to be added from the tape measurements."
     }
   }
 }

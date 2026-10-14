@@ -8,7 +8,7 @@ results/reproduction/:
 
   table2_drr.csv       mean and sd of |DRR error| per method and movement,
                        under the paper's direct-sound window and the repo's,
-                       beside the paper's Table 2, plus the held-out room
+                       beside the paper's Table 2
   t20_per_band.csv     Fig. 7 data: mean and sd of |relative T20 error| per
                        octave band, plus the signed mean (the bias)
   rms_per_band.csv     Fig. 8 data: mean and sd of the tonal-balance (octave-
@@ -16,25 +16,23 @@ results/reproduction/:
                        estimate decoded to the 7 microphones, spectral shape
                        of the reverberant part against the measured one, |error|
                        averaged over the microphones), plus the signed mean
-  per_room.csv         mean |T20 error| and |DRR error| per room, held-out
-                       room last
+  per_room.csv         mean |T20 error| and |DRR error| per room
   fig7_t20.png         Fig. 7 layout: head-only movement (top), walking (bottom)
   fig8_rms.png         Fig. 8 layout, same panels, microphone-domain error
   fig_drr.png          mean |DRR error| per method (paper window) beside the
                        paper's Table 2
   summary.md           all of the above on one page, with the takes used
 
-Takes: the four composite-protocol rooms only. The L-shape takes are left out:
+Takes: the five composite-protocol rooms. The L-shape takes are left out:
 they are acoustically the corridor and exist for the SLAM/OptiTrack pose
 comparison (README, "Rooms"), so including them would count the corridor
 twice. Movement is read from the take name; the paper's "combined movement" is
 this dataset's walking (fullMove). Static takes have no counterpart in the
 paper and appear in the tables only.
 
-The held-out room (small meeting room, rooms.json "held_out") was recorded
-after everything else was settled. It is kept out of the means compared with
-the paper and the figures, and reported on its own: a column of Table 2 and a
-row of the per-room table.
+The small meeting room (rooms.json "held_out") is pooled with the other four:
+it is held out only where something is fitted or chosen (the glasses-only
+block rule, the geometry stage, the dereverberator), and nothing here is.
 
 The paper gives Figs. 7 and 8 as plots without tabulated values, so only
 Table 2 is compared number for number; the figures reproduce its layout for a
@@ -60,8 +58,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SUMMARY = ROOT / "results" / "pipeline" / "summary.csv"
 OUT = ROOT / "results" / "reproduction"
 
-ROOMS = ("office", "corridor", "reverb", "meeting")
-HELD_OUT = ("smallmeeting",)
+ROOMS = ("office", "corridor", "reverb", "meeting", "smallmeeting")
 BANDS = (125, 250, 500, 1000, 2000, 4000, 8000)
 MOVEMENTS = {"headMove": "Head-only movement", "fullMove": "Walking (paper: combined movement)",
              "static": "Static (not in the paper)"}
@@ -140,10 +137,10 @@ def md_table(header: list[str], rows: list[list[str]]) -> str:
     return "\n".join(out)
 
 
-def table2(data: dict, held: dict) -> tuple[list, str]:
+def table2(data: dict) -> tuple[list, str]:
     rows, md = [], []
     for mov in ("headMove", "fullMove", "static"):
-        T, H = takes_for(data, mov), takes_for(held, mov)
+        T = takes_for(data, mov)
         if not T:
             continue
         for cond in (*PAPER_METHODS, "informed_omni", "baseline"):
@@ -151,25 +148,18 @@ def table2(data: dict, held: dict) -> tuple[list, str]:
             if cond == "baseline":
                 if not np.isfinite(p[0]):
                     continue
-                rows.append([mov, cond, 0, p[0], p[1], "", "", "", "", 0, "", ""])
-                md.append([MOVEMENTS[mov].split(" (")[0], "Baseline (single mic)", fmt(*p, " dB"), "not run", "not run",
-                           "0", "not run", "0"])
+                rows.append([mov, cond, 0, p[0], p[1], "", "", "", ""])
+                md.append([MOVEMENTS[mov].split(" (")[0], "Baseline (single mic)", fmt(*p, " dB"), "not run", "not run", "0"])
                 continue
             pw = mean_sd(values(data, T, cond, "drrErrPaper"))
             rw = mean_sd(values(data, T, cond, "drrErr"))
             n = int(np.isfinite(values(data, T, cond, "drrErrPaper")).sum())
-            hw = mean_sd(values(held, H, cond, "drrErrPaper"))
-            nh = int(np.isfinite(values(held, H, cond, "drrErrPaper")).sum())
-            rows.append([mov, cond, n, p[0], p[1], pw[0], pw[1], rw[0], rw[1], nh, hw[0], hw[1]])
-            md.append([MOVEMENTS[mov].split(" (")[0], METHODS[cond], fmt(*p, " dB"), fmt(*pw, " dB"), fmt(*rw, " dB"),
-                       str(n), fmt(*hw, " dB"), str(nh)])
+            rows.append([mov, cond, n, p[0], p[1], pw[0], pw[1], rw[0], rw[1]])
+            md.append([MOVEMENTS[mov].split(" (")[0], METHODS[cond], fmt(*p, " dB"), fmt(*pw, " dB"), fmt(*rw, " dB"), str(n)])
     write_csv(OUT / "table2_drr.csv", ["movement", "condition", "n_takes", "paper_mean_db", "paper_sd_db",
                                       "ours_paper_window_mean_db", "ours_paper_window_sd_db",
-                                      "ours_repo_window_mean_db", "ours_repo_window_sd_db",
-                                      "held_out_n_takes", "held_out_paper_window_mean_db",
-                                      "held_out_paper_window_sd_db"], rows)
-    return rows, md_table(["Movement", "Method", "Paper (Table 2)", "Ours, paper window", "Ours, repo window", "Takes",
-                           "Held-out room, paper window", "Takes"], md)
+                                      "ours_repo_window_mean_db", "ours_repo_window_sd_db"], rows)
+    return rows, md_table(["Movement", "Method", "Paper (Table 2)", "Ours, paper window", "Ours, repo window", "Takes"], md)
 
 
 def per_band(data: dict, prefix: str, fname: str, unit: str, abs_prefix: str | None = None) -> tuple[dict, str]:
@@ -200,7 +190,7 @@ def per_band(data: dict, prefix: str, fname: str, unit: str, abs_prefix: str | N
 def per_room(data: dict) -> str:
     rows, md = [], []
     for mov in ("headMove", "fullMove", "static"):
-        for room in (*ROOMS, *HELD_OUT):
+        for room in ROOMS:
             T = [t for t in takes_for(data, mov) if t.split("_")[0] == room]
             if not T:
                 continue
@@ -210,8 +200,7 @@ def per_room(data: dict) -> str:
                 drr = mean_sd(values(data, T, cond, "drrErrPaper"))[0]
                 rows.append([mov, room, cond, len(T), t20, drr])
                 cells.append(f"{t20:.1f} % / {drr:.1f} dB")
-            label = f"{room} (held out)" if room in HELD_OUT else room
-            md.append([MOVEMENTS[mov].split(" (")[0], label, str(len(T))] + cells)
+            md.append([MOVEMENTS[mov].split(" (")[0], room, str(len(T))] + cells)
     write_csv(OUT / "per_room.csv", ["movement", "room", "condition", "n_takes", "t20_abs_mean_pct",
                                      "drr_abs_mean_paper_window_db"], rows)
     return md_table(["Movement", "Room", "Takes"] + [f"{METHODS[c]}: T20 / DRR" for c in PAPER_METHODS], md)
@@ -291,11 +280,11 @@ def figure_drr(data: dict, path: Path) -> None:
 
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
-    data, held = load(), load(HELD_OUT)
-    _, t2 = table2(data, held)
+    data = load()
+    _, t2 = table2(data)
     t20, t20_md = per_band(data, "t20Err_", "t20_per_band.csv", "pct")
     rms, rms_md = per_band(data, "rmsErr_", "rms_per_band.csv", "db", abs_prefix="rmsAbsErr_")
-    room_md = per_room({**data, **held})
+    room_md = per_room(data)
     figure(t20, data, "|T20 error| (%)", "Relative octave-band T20 error, mean ± sd (cf. paper Fig. 7)",
            OUT / "fig7_t20.png")
     figure(rms, data, "|tonal-balance error| (dB)",
@@ -303,13 +292,10 @@ def main() -> int:
     figure_drr(data, OUT / "fig_drr.png")
     used = "\n".join(f"- {MOVEMENTS[m].split(' (')[0]}: " + ", ".join(takes_for(data, m))
                      for m in MOVEMENTS if takes_for(data, m))
-    used += "\n\nHeld out:\n\n" + "\n".join(f"- {MOVEMENTS[m].split(' (')[0]}: " + ", ".join(takes_for(held, m))
-                                         for m in MOVEMENTS if takes_for(held, m))
     md = f"""# RQ1: reproduction of Deppisch et al. (2026) on Aria Gen 1
 
 Generated by `analysis/reproduction.py` from `results/pipeline/summary.csv`.
-Rooms: {", ".join(ROOMS)}. Mean ± sd over takes; sd is the sample sd. The held-out room
-({", ".join(HELD_OUT)}) is reported separately and is not in the means or the figures.
+Rooms: {", ".join(ROOMS)}. Mean ± sd over takes; sd is the sample sd.
 
 ## Table 2: |DRR error|
 
