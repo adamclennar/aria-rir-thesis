@@ -2,19 +2,18 @@
 
 Reproduction of the method of Deppisch et al. (2026), *Identification and
 Matching of Room Acoustics With Moving Head-Worn Microphone Arrays*
-(EURASIP JASMP 2026:30), on recordings made with Aria Gen 1 glasses in five
-rooms, plus a sixth held out for testing. The paper's algorithms (WPE dereverberation, MUSIC + MPDR beamformer,
+(EURASIP JASMP 2026:30), on recordings made with Aria Gen 1 glasses in six
+rooms. The paper's algorithms (WPE dereverberation, MUSIC + MPDR beamformer,
 motion-aware and omni RLS) run **unmodified** from the authors' code, pinned as
 a submodule; this repository supplies everything around them: turning the
 recordings into the paper's take format, the reference measurements, and the
 scoring.
 
 > **Status:** the baseline (the paper's four conditions) has been run from
-> here on every take: the four composite-protocol rooms, the L-shape
-> pose-comparison takes and the held-out small meeting room. So has the
-> block-length sweep on the walking takes. The analyses beyond the
-> reproduction are still being ported from the working repository (see "Not
-> in here (yet)").
+> here on every take: the five composite-protocol rooms and the L-shape
+> pose-comparison takes. So have the block-length sweep on the walking takes
+> of the four rooms recorded first, and the front-end anchors (RQ2). The rest
+> is still being ported from the working repository (see "Not in here (yet)").
 
 ## Two stages
 
@@ -62,6 +61,19 @@ provenance, not something readers can run. The two stages share no code;
 | `summariseBlockSweep.m` (runs from `../run_blocksweep.sh`) | block-length sweep: each walking take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
 | `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
 
+**Stage 2, diagnostics -- `pipeline/` (where the blind pipeline loses accuracy, RQ2)**
+
+| file | role |
+|---|---|
+| `frontEndAnchors.m` (runs from `../run_anchors.sh`) | the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
+| `evalReference.m`, `scoreRefSig.m`, `rowsToTable.m` | one reference through both RLS models, scored as a signal (coherence with the source, early and late residual, filter drift) and through its RIRs |
+| `receivedDirect.m` | the perfect front end: the source as it reaches the moving array (range delay and 1/r) |
+| `addOracleDoa.m`, `acousticCentre.m` | the protocol bearing: the source straight ahead of the reference pose (the wearer faces the loudspeaker during the in-take sweep; for the corridor's static and head-only takes, which have no sweep, `faces_source_at_reference` in `config/rooms.json`) at the omni-measured distance, followed through the tracked pose; bearing and range per sample from the head's acoustic centre |
+| `snapToAtf.m`, `doaErrVsOracle.m` | DoA errors against the protocol bearing, before and after the beamformer snaps to the ATF grid |
+| `musicWorldFrame.m` | MUSIC's estimates fitted to one source position using the pose: the glasses' own source bearing, kept for the vision distance (RQ3); not used to steer |
+| `beamform.m`, `upstream_modified/` | the MUSIC + MPDR front end steered along a given trajectory, via the one modified upstream function (see its README) |
+| `evalDereverb.m`, `exportInputs.m` | harness for a candidate dereverberator: its inputs exported as WAVs, its output scored with the beamformer steered at the protocol bearing |
+
 **Analysis -- `analysis/` (results -> tables and figures)**
 
 Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MATLAB.
@@ -69,12 +81,15 @@ Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MA
 | file | role |
 |---|---|
 | `reproduction.py` | RQ1: the paper's Table 2 (DRR, both windows), Fig. 7 (T20 per band) and Fig. 8 (RMS per band) per movement type, plus per-room errors -> `results/reproduction/` |
+| `stats.py` | shared by the scripts below: the primary T20 measure and its sensitivity band sets, and the paired tests (bootstrap CI of the median, exact sign and Wilcoxon) |
+| `decomposition.py` | RQ2: what movement costs and what blind estimation costs on top, per metric, paired -> `results/decomposition/` |
+| `blocksweep.py` | RQ2: T20 error against block length, optionally beside the reference study's own sweep -> `results/blocksweep/` |
 
 **Configuration**: `config/rooms.json` defines the dataset -- every room, every
 take, the files each uses, and every exclusion with its reason.
 
-**Rooms**: the baseline comparison uses the four composite-protocol rooms
-(office, corridor, reverb, meeting). The L-shape takes were recorded at the
+**Rooms**: the analyses use the five composite-protocol rooms (office,
+corridor, reverb, meeting, small meeting room). The L-shape takes were recorded at the
 end of the same corridor, opening into a larger room -- acoustically the same
 space (T20 within ~5 % of the corridor's in six of seven octave bands) -- with
 OptiTrack running. They exist for the pose-source comparison (the `*Opti`
@@ -83,25 +98,29 @@ instead of SLAM), not as an additional room. Both versions of each walking
 take are trimmed to the span OptiTrack tracks completely, so the comparison
 is pure SLAM against pure OptiTrack.
 
-The small meeting room is the held-out room (`"held_out": true`): recorded
-after everything else was settled, so nothing was tuned on it. It follows the
-composite protocol but has no SM57 recording. Analyses report it separately
-from the four rooms.
+The small meeting room (`"held_out": true`) was recorded last, after
+everything else was settled. It follows the composite protocol but has no SM57
+recording. It is pooled with the other four wherever nothing is fitted or
+chosen (the reproduction and the RQ2 diagnostics), and held out wherever
+something is: the glasses-only block-length rule, the geometry stage's fitted
+constants, and the dereverberator's design. Those are fixed on the other four
+rooms and then applied to it unchanged.
 
 **External code**
 
 | path | what | licence |
 |---|---|---|
 | `external/room-acoustic-matching` | Deppisch et al.'s code, submodule pinned at `76c6ea3`, unmodified | Chalmers non-commercial academic licence |
+| `pipeline/upstream_modified` | one upstream function, modified to steer along a trajectory; diagnostics only | Chalmers non-commercial academic licence |
 | `external/ita-toolbox` | ITA toolbox (T20 via Lundeby), submodule pinned at `fbf29e1` | BSD-style (RWTH Aachen) |
 | `thirdparty/stft` | T. Shlomo's STFT, vendored (upstream's nested submodule, `d7993ac`, is not fetched) | MIT |
 
 ## Not in here (yet)
 
-Still in the working repository, to be ported as the thesis needs them:
-world-frame DoA analysis and the perfect-front-end, dereverberation and
-dose-response studies (where the blind pipeline loses accuracy); block length
-from the glasses alone and the SLAM/OptiTrack pose comparison (glasses-only
+Still in the working repository, to be ported as the thesis needs them: the
+controlled-contamination (dose-response) curves and blind equalisation of the
+pseudo-reference (where the blind pipeline loses accuracy); block length from
+the glasses alone and the SLAM/OptiTrack pose comparison (glasses-only
 operation); and the scene-geometry estimates: SLAM room volume, vision
 distance and geometric DRR.
 
@@ -135,6 +154,9 @@ matlab -batch "cd pipeline; rescore()"           # every saved result -> results
 ./run_blocksweep.sh                              # walking takes at 0.5x / 1.5x / 2x the rule block
 matlab -batch "cd pipeline; summariseBlockSweep()"   # -> results/blocksweep/blocksweep.csv
 python analysis/reproduction.py                  # RQ1 tables and figures -> results/reproduction/
+./run_anchors.sh                                 # RQ2 front-end anchors, takes with a protocol bearing
+python analysis/decomposition.py                 # RQ2 movement x estimation -> results/decomposition/
+python analysis/blocksweep.py                    # RQ2 block length -> results/blocksweep/
 ```
 
 ## Scoring
