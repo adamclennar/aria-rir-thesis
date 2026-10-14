@@ -7,6 +7,10 @@ function ensurePaths()
 % The pipeline calls stft(x, win, hop, nfft, fs), the third-party signature,
 % so that stft MUST shadow MATLAB's own (which reads a bare numeric argument
 % as a sample rate and errors). addpath prepends, so the copies added here win.
+%
+% upstream_modified/ holds the one modified upstream function (the beamformer
+% steered along a DoA trajectory), used only by the diagnostics; see the
+% README there.
 persistent done
 if ~isempty(done); return; end
 here = fileparts(mfilename('fullpath'));
@@ -15,6 +19,7 @@ ext = fullfile(root, 'external');
 addpath(genpath(fullfile(ext, 'ita-toolbox')));
 addpath(fullfile(ext, 'room-acoustic-matching', 'code', 'lib'));
 addpath(fullfile(root, 'thirdparty', 'stft'));
+addpath(fullfile(here, 'upstream_modified'));
 addpath(here);
 expect = {'stft', fullfile(root,'thirdparty','stft'); ...
           'fdChRlsRotTransAtf', fullfile(ext,'room-acoustic-matching'); ...
