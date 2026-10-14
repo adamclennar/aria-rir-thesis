@@ -1,5 +1,5 @@
 {
-  "_comment": "One entry per room. Paths are relative to raw_root, which is set per machine in config/paths.json. 'takes' map the output stem to the raw VRS + MPS folder; 'drive' names the loudspeaker drive file used for that take. 'exclude' lists takes to skip and why. 'motion' is static|head|full, a label. 'sweeps' are recorded with an OMNI microphone on a stand at the listening position (so the reference RIR carries RT, DRR and the source distance); 'sm57' are the near-field recordings at the loudspeaker used as the alternative informed source signal. 'distance_m' is the tape-measured loudspeaker-to-listening-position distance; build_reference cross-checks its derived distance against it. 'omni_mic_height_m' / 'source_height_m' record the sweep geometry: the omni sat on a stand just under shoulder height, below the wearer's head, which shifts the floor-bounce comb notch within the 125 Hz band (see README). Composite-protocol rooms (clicks -> sweep -> speech in one played file) add 'speech_span_s' (the speech inside the drive file), 'source_span_s' (the portion kept as sourceSig / the take trim, i.e. the speech file's own extent) and 'sweep_span_s' (the sweep excitation inside the drive file: its lead, the sweep, and the silence after it, but STOPPING BEFORE THE SPEECH BEGINS at 52.5 s. Running it to the end of the sweep file (55.625 s) puts 3.1 s of speech into the excitation, which the deconvolution then treats as part of the sweep -- harmless-looking in a reverberant room but it doubled the measured T20 at 125-250 Hz in the dry office. It yields the 7-channel array RIR in the IRs field). Any of 'drive', 'sm57', 'speech_span_s', 'source_span_s', and 'sweep_span_s' may also be set PER TAKE, which overrides the room-level value. The corridor needs this: its static and head-moving takes (Sep 21) played the old 66 s speech-only file, while its walking takes were re-recorded on Sep 23 with the 118 s composite, so the protocol is a property of the take there rather than of the room. 'sm57' may be null, which omits sourceSigSm57: the corridor walking takes have no near-field recording of the composite, and borrowing another room's would put that room's early reflections into a corridor reference. A take may set 'ref_time_s' (seconds from the start of the recording) to fix the reference instant instead of searching for the stillest window; the two L-shape walking takes need it, because their stillest moments had the loudspeaker at +108 and +162 deg (beside and behind the wearer). Their times are moments OptiTrack shows the wearer facing it (median within 4 deg). A take may set 'mps' to override the default mps_<vrs stem>_vrs folder; meeting_maleSpeech_fullMove needs it because the folder bearing its name holds a trajectory from another recording (verified by device-clock overlap). build_take refuses any MPS whose span does not cover the audio.",
+  "_comment": "faces_source_at_reference marks a take without an in-take sweep whose reference pose still faces the loudspeaker, so the diagnostics' protocol bearing applies (pipeline/addOracleDoa.m). One entry per room. Paths are relative to raw_root, which is set per machine in config/paths.json. 'takes' map the output stem to the raw VRS + MPS folder; 'drive' names the loudspeaker drive file used for that take. 'exclude' lists takes to skip and why. 'motion' is static|head|full, a label. 'sweeps' are recorded with an OMNI microphone on a stand at the listening position (so the reference RIR carries RT, DRR and the source distance); 'sm57' are the near-field recordings at the loudspeaker used as the alternative informed source signal. 'distance_m' is the tape-measured loudspeaker-to-listening-position distance; build_reference cross-checks its derived distance against it. 'omni_mic_height_m' / 'source_height_m' record the sweep geometry: the omni sat on a stand just under shoulder height, below the wearer's head, which shifts the floor-bounce comb notch within the 125 Hz band (see README). Composite-protocol rooms (clicks -> sweep -> speech in one played file) add 'speech_span_s' (the speech inside the drive file), 'source_span_s' (the portion kept as sourceSig / the take trim, i.e. the speech file's own extent) and 'sweep_span_s' (the sweep excitation inside the drive file: its lead, the sweep, and the silence after it, but STOPPING BEFORE THE SPEECH BEGINS at 52.5 s. Running it to the end of the sweep file (55.625 s) puts 3.1 s of speech into the excitation, which the deconvolution then treats as part of the sweep -- harmless-looking in a reverberant room but it doubled the measured T20 at 125-250 Hz in the dry office. It yields the 7-channel array RIR in the IRs field). Any of 'drive', 'sm57', 'speech_span_s', 'source_span_s', and 'sweep_span_s' may also be set PER TAKE, which overrides the room-level value. The corridor needs this: its static and head-moving takes (Sep 21) played the old 66 s speech-only file, while its walking takes were re-recorded on Sep 23 with the 118 s composite, so the protocol is a property of the take there rather than of the room. 'sm57' may be null, which omits sourceSigSm57: the corridor walking takes have no near-field recording of the composite, and borrowing another room's would put that room's early reflections into a corridor reference. A take may set 'ref_time_s' (seconds from the start of the recording) to fix the reference instant instead of searching for the stillest window; the two L-shape walking takes need it, because their stillest moments had the loudspeaker at +108 and +162 deg (beside and behind the wearer). Their times are moments OptiTrack shows the wearer facing it (median within 4 deg). A take may set 'mps' to override the default mps_<vrs stem>_vrs folder; meeting_maleSpeech_fullMove needs it because the folder bearing its name holds a trajectory from another recording (verified by device-clock overlap). build_take refuses any MPS whose span does not cover the audio.",
   "rooms": {
     "office": {
       "aria_dir": "L2_Office_aria",
@@ -103,18 +103,23 @@
         "corridor_maleSpeech_static": {
           "vrs": "L2_corridor_male_static.vrs",
           "speaker": "male",
-          "motion": "static"
+          "motion": "static",
+          "faces_source_at_reference": true,
+          "note": "no in-take sweep (speech-only drive). The reference pose is the stillest 2 s of the speech, standing on the mark facing the loudspeaker; MUSIC puts the source within 15 deg of straight ahead on 99.9% of blocks (median +6 deg)"
         },
         "corridor_femaleSpeech_static": {
           "vrs": "L2_corridor_female_static.vrs",
           "speaker": "female",
-          "motion": "static"
+          "motion": "static",
+          "faces_source_at_reference": true,
+          "note": "no in-take sweep (speech-only drive). The reference pose is the stillest 2 s of the speech, standing on the mark facing the loudspeaker; MUSIC puts the source within 15 deg of straight ahead on 99.2% of blocks (median +0 deg)"
         },
         "corridor_maleSpeech_headMove": {
           "vrs": "L2_corridor_male_head_moving.vrs",
           "speaker": "male",
           "motion": "head",
           "ref_time_s": 29.0,
+          "faces_source_at_reference": true,
           "note": "reference fixed at 29.0 s: the stillest window had the loudspeaker at +98 deg (from the MUSIC bearing and SLAM yaw; no OptiTrack here). The head sweeps continuously, so this 2 s window is centred on a sweep through the loudspeaker direction: its mean pose faces it to within 1 deg"
         },
         "corridor_femaleSpeech_headMove": {
@@ -122,6 +127,7 @@
           "speaker": "female",
           "motion": "head",
           "ref_time_s": 41.3,
+          "faces_source_at_reference": true,
           "note": "reference fixed at 41.3 s: the stillest window had the loudspeaker at +93 deg (from the MUSIC bearing and SLAM yaw; no OptiTrack here). The head sweeps continuously, so this 2 s window is centred on a sweep through the loudspeaker direction: its mean pose faces it to within 1 deg"
         },
         "corridor_maleSpeech_fullMove_old": {
