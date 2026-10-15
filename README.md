@@ -58,21 +58,25 @@ provenance, not something readers can run. The two stages share no code;
 | `drrWindows.m`, `revBandLevels.m` | the two DRR direct-sound windows (paper's and this repo's), and the reverberant part's octave-band levels behind the RMS error |
 | `chDecodeToMics.m`, `micRevShape.m` | an estimate decoded to the 7 microphones, and each microphone's reverberant spectral shape: the tonal-balance error is scored there |
 | `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
-| `summariseBlockSweep.m` (runs from `../run_blocksweep.sh`) | block-length sweep: each walking take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
+| `summariseBlockSweep.m` | block-length sweep (`run.py blocksweep`): each walking and static take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
 | `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
 
 **Stage 2, diagnostics -- `pipeline/` (where the blind pipeline loses accuracy, RQ2)**
 
 | file | role |
 |---|---|
-| `frontEndAnchors.m` (runs from `../run_anchors.sh`) | the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
+| `frontEndAnchors.m` (`run.py anchors`) | the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
 | `evalReference.m`, `scoreRefSig.m`, `rowsToTable.m` | one reference through both RLS models, scored as a signal (coherence with the source, early and late residual, filter drift) and through its RIRs |
 | `receivedDirect.m` | the perfect front end: the source as it reaches the moving array (range delay and 1/r) |
 | `addOracleDoa.m`, `acousticCentre.m` | the protocol bearing: the source straight ahead of the reference pose (the wearer faces the loudspeaker during the in-take sweep; for the corridor's static and head-only takes, which have no sweep, `faces_source_at_reference` in `config/rooms.json`) at the omni-measured distance, followed through the tracked pose; bearing and range per sample from the head's acoustic centre |
 | `snapToAtf.m`, `doaErrVsOracle.m` | DoA errors against the protocol bearing, before and after the beamformer snaps to the ATF grid |
 | `musicWorldFrame.m` | MUSIC's estimates fitted to one source position using the pose: the glasses' own source bearing, kept for the vision distance (RQ3); not used to steer |
 | `beamform.m`, `upstream_modified/` | the MUSIC + MPDR front end steered along a given trajectory, via the one modified upstream function (see its README) |
-| `evalDereverb.m`, `exportInputs.m` | harness for a candidate dereverberator: its inputs exported as WAVs, its output scored with the beamformer steered at the protocol bearing |
+| `evalDereverb.m`, `exportInputs.m` | harness for a candidate dereverberator: its inputs exported as WAVs (optionally with the received source, for oracle candidates), its output scored with the beamformer steered at the protocol bearing |
+
+**Oracle front-end candidates -- `dereverb/` (`run.py oracle`)**
+
+`oracle.py` builds candidate pseudo-references with the source known, to measure what parts of today's reference cost accuracy: the floor echo removed (as measured, and as a simple echo model), all early reflections removed (by subtraction, and by inverse filtering), and the split into the reference's fixed part only and the perfect front end plus its non-fixed residual. They go through `evalDereverb` like any dereverberator; `analysis/dereverb.py` reads them.
 
 **Analysis -- `analysis/` (results -> tables and figures)**
 
@@ -83,7 +87,9 @@ Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MA
 | `reproduction.py` | RQ1: the paper's Table 2 (DRR, both windows), Fig. 7 (T20 per band) and Fig. 8 (RMS per band) per movement type, plus per-room errors -> `results/reproduction/` |
 | `stats.py` | shared by the scripts below: the primary T20 measure and its sensitivity band sets, and the paired tests (bootstrap CI of the median, exact sign and Wilcoxon) |
 | `decomposition.py` | RQ2: what movement costs and what blind estimation costs on top, per metric, paired -> `results/decomposition/` |
-| `blocksweep.py` | RQ2: T20 error against block length, optionally beside the reference study's own sweep -> `results/blocksweep/` |
+| `blocksweep.py` | RQ2: T20 error against block length, walking and static takes, optionally beside the reference study's own sweep -> `results/blocksweep/` |
+| `frontend.py` | RQ2: the front-end anchors, against the omni reference and as deviation from the informed estimate of the same take -> `results/frontend/` |
+| `dereverb.py` | RQ2/RQ3: the oracle candidates on the front-end ladder, and the share of the headroom each recovers -> `results/dereverb/summary.md` |
 
 **Configuration**: `config/rooms.json` defines the dataset -- every room, every
 take, the files each uses, and every exclusion with its reason.
@@ -149,15 +155,22 @@ python build/build_take.py                       # every take in config/rooms.js
 python build/build_array_sweeps.py lshape        # L-shape array sweeps
 matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','meeting','smallmeeting'})"
 matlab -batch "cd pipeline; buildSweepReference('lshape','lshape_maleSpeech_static')"
-./run_takes.sh <take> [<take> ...]               # stage 2, one MATLAB process per take
-matlab -batch "cd pipeline; rescore()"           # every saved result -> results/pipeline/summary.csv
-./run_blocksweep.sh                              # walking takes at 0.5x / 1.5x / 2x the rule block
-matlab -batch "cd pipeline; summariseBlockSweep()"   # -> results/blocksweep/blocksweep.csv
+python run.py baseline                           # stage 2: the paper's four conditions on every take
+python run.py rescore                            # every saved result -> results/pipeline/summary.csv
+python run.py blocksweep                         # walking and static takes at 0.5x / 1.5x / 2x the rule block
 python analysis/reproduction.py                  # RQ1 tables and figures -> results/reproduction/
-./run_anchors.sh                                 # RQ2 front-end anchors, takes with a protocol bearing
+python run.py anchors                            # RQ2 front-end anchors, takes with a protocol bearing
+python run.py oracle                             # RQ2/RQ3 oracle candidates (exportInputs, dereverb/oracle.py, evalDereverb)
 python analysis/decomposition.py                 # RQ2 movement x estimation -> results/decomposition/
 python analysis/blocksweep.py                    # RQ2 block length -> results/blocksweep/
+python analysis/frontend.py                      # RQ2 front end -> results/frontend/
+python analysis/dereverb.py                      # RQ2/RQ3 oracle candidates -> results/dereverb/
 ```
+
+`run.py` builds each stage's job list from `config/rooms.json`, skips jobs whose output
+exists (so every stage resumes), and runs MATLAB jobs three at a time, one process each,
+retrying a crashed job once; `--dry-run` prints the jobs, `--rooms` / `--movement` /
+`--takes` narrow them. Logs go to `results/logs/<stage>/`.
 
 ## Scoring
 
