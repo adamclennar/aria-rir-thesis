@@ -15,6 +15,7 @@ arguments
     opts.sourceField (1,:) char = 'sourceSig'
     opts.tag (1,:) char = ''
 end
+ensurePaths();                                     % helpers live in subfolders
 P = prepAriaTake(takeName, 'blockLenMs', opts.blockLenMs, 'atfFile', opts.atfFile, ...
                  'sourceField', opts.sourceField);
 R = struct('take', takeName, 'blockLenMs', P.blockLenMs, 'atfFile', P.atfFile, ...

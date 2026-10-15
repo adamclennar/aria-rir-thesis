@@ -30,6 +30,7 @@ arguments
     opts.refNone (1,1) logical = true
     opts.received (1,1) logical = false
 end
+ensurePaths();                                     % helpers live in subfolders
 P = addOracleDoa(prepAriaTake(takeName));         % WPE from cache
 if ~P.hasOracle
     error('exportInputs:noGeometry', '%s has no protocol bearing (addOracleDoa) to steer at', takeName);

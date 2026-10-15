@@ -44,6 +44,7 @@ arguments
     opts.inputGain = 'auto'
     opts.force (1,1) logical = false   % ignore a cached result and re-run
 end
+ensurePaths();                                     % helpers live in subfolders
 [~, base, ext] = fileparts(candidate);
 label = opts.label;
 if isempty(label)

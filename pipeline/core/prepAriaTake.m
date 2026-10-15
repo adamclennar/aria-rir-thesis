@@ -27,7 +27,7 @@ arguments
     opts.sourceField (1,:) char = 'sourceSig'   % informed reference: 'sourceSig' (drive) or 'sourceSigSm57'
 end
 ensurePaths();
-root = fileparts(fileparts(mfilename('fullpath')));
+root = repoRoot();
 P = struct(); P.takeName = takeName; P.root = root;
 
 d = load(fullfile(root,'data','rooms',[takeName '.mat']));

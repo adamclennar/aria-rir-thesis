@@ -33,7 +33,7 @@ function buildArrayReference(rooms)
 %   revShapeMicsPerTake     numTakes x numMics x numBands
 %   takes, fBands, fs, info
 ensurePaths();
-root = fileparts(fileparts(mfilename('fullpath')));
+root = repoRoot();
 cfg = jsondecode(fileread(fullfile(root,'config','rooms.json')));
 if nargin < 1 || isempty(rooms)
     rooms = fieldnames(cfg.rooms)';

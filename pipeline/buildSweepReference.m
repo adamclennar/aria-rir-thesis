@@ -22,7 +22,7 @@ function buildSweepReference(room, anyTake)
 %                              the reverberant spectral shape (revBandsDb), as
 %                              buildArrayReference writes them
 ensurePaths();
-root = fileparts(fileparts(mfilename('fullpath')));
+root = repoRoot();
 cfg = jsondecode(fileread(fullfile(root,'config','rooms.json')));
 S = load(fullfile(root,'data','rooms',[room '_arraySweeps.mat']));
 P = prepAriaTake(anyTake, 'runWpe', false, 'blockLenMs', 3000);   % 3 s FFT: the whole IR

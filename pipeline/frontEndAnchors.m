@@ -49,6 +49,7 @@ arguments
     opts.conditions (1,:) cell = {'published','wpe_oracle_steering','nowpe_oracle_steering','perfect_frontend', ...
                                   'informed_lvl_matched','informed'}
 end
+ensurePaths();                                     % helpers live in subfolders
 P = prepAriaTake(takeName);                         % WPE from the cache
 P = addOracleDoa(P);
 if ~P.hasOracle

@@ -2,7 +2,7 @@ function T = runAll(takes)
 % Run runTake on every take (or the given stems) and tabulate
 % results/pipeline/summary.csv.
 ensurePaths();
-root = fileparts(fileparts(mfilename('fullpath')));
+root = repoRoot();
 if nargin < 1 || isempty(takes)
     f = dir(fullfile(root,'data','rooms','*Speech*.mat'));
     takes = erase({f.name}, '.mat');

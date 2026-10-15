@@ -49,30 +49,32 @@ provenance, not something readers can run. The two stages share no code;
 
 **Stage 2 -- `pipeline/` (`.mat` -> results)**
 
-| file | role |
+The functions you call sit in `pipeline/` itself; the helpers they use are grouped in
+subfolders, which `ensurePaths` (each entry point calls it first) puts on the path.
+
+| entry point | role |
 |---|---|
-| `runTake.m`, `runAll.m` | the paper's four conditions (informed/blind x motion-aware/omni) on one take / all takes |
-| `prepAriaTake.m` | loads a take and sets everything up as `estimateRirs.m` does |
-| `rlsFit.m`, `bfEstimate.m`, `getWpe.m`, `defaultWpeParams.m` | thin wrappers calling the upstream functions with the published parameters |
-| `scoreRir.m`, `rescore.m` | T20, DRR and octave-band RMS scoring against the room references; `rescore` re-scores saved RIRs into `results/pipeline/summary.csv` |
-| `drrWindows.m`, `revBandLevels.m` | the two DRR direct-sound windows (paper's and this repo's), and the reverberant part's octave-band levels behind the RMS error |
-| `chDecodeToMics.m`, `micRevShape.m` | an estimate decoded to the 7 microphones, and each microphone's reverberant spectral shape: the tonal-balance error is scored there |
-| `chEncodeArrayIr.m`, `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
+| `runTake.m`, `runAll.m` | the paper's four conditions (informed/blind x motion-aware/omni) on one take / all takes (`run.py baseline`) |
+| `rescore.m` | re-scores saved RIRs into `results/pipeline/summary.csv` (`run.py rescore`) |
+| `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
 | `summariseBlockSweep.m` | block-length sweep (`run.py blocksweep`): each walking and static take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
-| `ensurePaths.m` | puts the pinned dependencies on the path and checks nothing shadows them |
-
-**Stage 2, diagnostics -- `pipeline/` (where the blind pipeline loses accuracy, RQ2)**
-
-| file | role |
-|---|---|
-| `frontEndAnchors.m` (`run.py anchors`) | the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
-| `evalReference.m`, `scoreRefSig.m`, `rowsToTable.m` | one reference through both RLS models, scored as a signal (coherence with the source, early and late residual, filter drift) and through its RIRs |
-| `receivedDirect.m` | the perfect front end: the source as it reaches the moving array (range delay and 1/r) |
-| `addOracleDoa.m`, `acousticCentre.m` | the protocol bearing: the source straight ahead of the reference pose (the wearer faces the loudspeaker during the in-take sweep; for the corridor's static and head-only takes, which have no sweep, `faces_source_at_reference` in `config/rooms.json`) at the omni-measured distance, followed through the tracked pose; bearing and range per sample from the head's acoustic centre |
-| `snapToAtf.m`, `doaErrVsOracle.m` | DoA errors against the protocol bearing, before and after the beamformer snaps to the ATF grid |
-| `musicWorldFrame.m` | MUSIC's estimates fitted to one source position using the pose: the glasses' own source bearing, kept for the vision distance (RQ3); not used to steer |
-| `beamform.m`, `upstream_modified/` | the MUSIC + MPDR front end steered along a given trajectory, via the one modified upstream function (see its README) |
+| `frontEndAnchors.m` | RQ2 (`run.py anchors`): the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
 | `evalDereverb.m`, `exportInputs.m` | harness for a candidate dereverberator: its inputs exported as WAVs (optionally with the received source, for oracle candidates), its output scored with the beamformer steered at the protocol bearing |
+| `ensurePaths.m`, `repoRoot.m` | put the pinned dependencies and the subfolders on the path (and check nothing shadows them); the repository root |
+
+| helpers | role |
+|---|---|
+| `core/`: `prepAriaTake.m` | loads a take and sets everything up as `estimateRirs.m` does |
+| `core/`: `rlsFit.m`, `bfEstimate.m`, `getWpe.m`, `defaultWpeParams.m` | thin wrappers calling the upstream functions with the published parameters |
+| `core/`: `chEncodeArrayIr.m` | array IRs encoded into the CH domain (the references) |
+| `scoring/`: `scoreRir.m` | T20, DRR and tonal balance of one estimate against the room references |
+| `scoring/`: `drrWindows.m`, `revBandLevels.m` | the two DRR direct-sound windows (paper's and this repo's), and the reverberant part's octave-band levels |
+| `scoring/`: `chDecodeToMics.m`, `micRevShape.m` | an estimate decoded to the 7 microphones, and each microphone's reverberant spectral shape: tonal balance is scored there |
+| `diagnostics/`: `evalReference.m`, `scoreRefSig.m`, `rowsToTable.m` | one reference through both RLS models, scored as a signal (coherence with the source, early and late residual, filter drift) and through its RIRs |
+| `diagnostics/`: `receivedDirect.m` | the perfect front end: the source as it reaches the moving array (range delay and 1/r) |
+| `diagnostics/`: `addOracleDoa.m`, `acousticCentre.m` | the protocol bearing: the source straight ahead of the reference pose (the wearer faces the loudspeaker during the in-take sweep; for the corridor's static and head-only takes, which have no sweep, `faces_source_at_reference` in `config/rooms.json`) at the omni-measured distance, followed through the tracked pose; bearing and range per sample from the head's acoustic centre |
+| `diagnostics/`: `snapToAtf.m`, `doaErrVsOracle.m` | DoA errors against the protocol bearing, before and after the beamformer snaps to the ATF grid |
+| `diagnostics/`: `beamform.m` | the MUSIC + MPDR front end steered along a given trajectory, via the one modified upstream function in `upstream_modified/` (see its README) |
 
 **Oracle front-end candidates -- `dereverb/` (`run.py oracle`)**
 

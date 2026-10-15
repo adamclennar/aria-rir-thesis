@@ -11,7 +11,7 @@ function T = summariseBlockSweep(takes)
 % logs, so a reference rebuilt after a run is picked up, and the numbers do
 % not exist only in a log file.
 ensurePaths();
-root = fileparts(fileparts(mfilename('fullpath')));
+root = repoRoot();
 resDir = fullfile(root, 'results', 'pipeline');
 if nargin < 1 || isempty(takes)
     f = dir(fullfile(resDir, '*_fullMove*_blk*.mat'));

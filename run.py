@@ -120,7 +120,7 @@ def run_one(label: str, cmd: str, logs: Path, delay: float) -> int:
     for attempt in (1, 2):
         say(f"== {label}: starting (try {attempt})")
         with open(logs / f"{label}.log", "a") as log:
-            rc = subprocess.run([MATLAB, "-batch", f"cd('{ROOT / 'pipeline'}'); {cmd}"], stdout=log,
+            rc = subprocess.run([MATLAB, "-batch", f"cd('{ROOT / 'pipeline'}'); ensurePaths(); {cmd}"], stdout=log,
                                 stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env).returncode
         say(f"== {label}: exit {rc}")
         if rc == 0:

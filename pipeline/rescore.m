@@ -16,7 +16,7 @@ function T = rescore(takes)
 % cheap; the ~30 min per take of estimation is not, so it is redone from the
 % stored RIRs rather than from the audio.
 ensurePaths();
-root = fileparts(fileparts(mfilename('fullpath')));
+root = repoRoot();
 resDir = fullfile(root,'results','pipeline');
 if nargin < 1 || isempty(takes)
     f = dir(fullfile(resDir,'*Speech*.mat'));
