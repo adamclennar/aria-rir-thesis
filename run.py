@@ -9,6 +9,9 @@
     python run.py anchors    [selection]   the front-end anchors stored in results/frontend/
     python run.py oracle     [selection]   the oracle front-end candidates: exportInputs, dereverb/oracle.py,
                                            evalDereverb. Stored in results/dereverb/
+    python run.py geometry   [selection]   the glasses' source bearing (sourceBearing), then the room box and
+                                           vision distance from the SLAM point cloud (geometry/scene.py).
+                                           Stored in results/geometry/
     python run.py jobs FILE                any job list (lines: <label> <MATLAB command>)
 
   selection: --rooms R [R ...]  --movement static headMove fullMove  --takes T [T ...]
@@ -22,6 +25,7 @@ takes it needs:
   blocksweep  walking and static takes of the composite rooms
   anchors     takes with a protocol bearing: an in-take sweep, or faces_source_at_reference
   oracle      the same takes, where the wearer does not walk
+  geometry    every take of the composite rooms
 
 A job whose output already exists is skipped, so every command resumes. MATLAB jobs run a few at a
 time, one MATLAB process each (a crash costs that job only, memory is freed between jobs, and
@@ -202,6 +206,18 @@ def oracle(a) -> bool:
     return run_jobs(evals, "oracle", a)
 
 
+def geometry(a) -> bool:
+    takes = select(a, composite)
+    geo = ROOT / "results" / "geometry"
+    jobs = [(f"bearing_{t}", f"sourceBearing({q(t)})") for t in takes if not (geo / "bearing" / f"{t}.json").exists()]
+    if not run_jobs(jobs, "geometry", a):
+        return False
+    say(f"geometry: room box and vision distance for {len(takes)} take(s)")
+    if not a.dry_run:
+        subprocess.run([sys.executable, str(ROOT / "geometry" / "scene.py"), *takes], check=True)
+    return True
+
+
 def jobfile(a) -> bool:
     lines = [ln.split(maxsplit=1) for ln in a.file.read_text().splitlines() if ln.strip() and not ln.startswith("#")]
     return run_jobs([(l, c) for l, c in lines], a.file.stem, a)
@@ -211,12 +227,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="stage", required=True)
     stages = {"baseline": baseline, "rescore": rescore, "blocksweep": blocksweep, "anchors": anchors,
-              "oracle": oracle, "jobs": jobfile}
+              "oracle": oracle, "geometry": geometry, "jobs": jobfile}
     for name in stages:
         p = sub.add_parser(name)
         p.add_argument("--jobs", type=int, default=3)
         p.add_argument("--dry-run", action="store_true")
-        if name in ("baseline", "blocksweep", "anchors", "oracle"):
+        if name in ("baseline", "blocksweep", "anchors", "oracle", "geometry"):
             p.add_argument("--rooms", nargs="+")
             p.add_argument("--movement", nargs="+", choices=MOVEMENTS)
             p.add_argument("--takes", nargs="+")

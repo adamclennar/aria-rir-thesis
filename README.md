@@ -60,6 +60,7 @@ subfolders, which `ensurePaths` (each entry point calls it first) puts on the pa
 | `summariseBlockSweep.m` | block-length sweep (`run.py blocksweep`): each walking and static take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
 | `frontEndAnchors.m` | RQ2 (`run.py anchors`): the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
 | `evalDereverb.m`, `exportInputs.m` | harness for a candidate dereverberator: its inputs exported as WAVs (optionally with the received source, for oracle candidates), its output scored with the beamformer steered at the protocol bearing |
+| `sourceBearing.m` | RQ3 (`run.py geometry`): the glasses' own source bearing at the reference pose, with the reference values the geometric DRR needs |
 | `ensurePaths.m`, `repoRoot.m` | put the pinned dependencies and the subfolders on the path (and check nothing shadows them); the repository root |
 
 | helpers | role |
@@ -75,10 +76,18 @@ subfolders, which `ensurePaths` (each entry point calls it first) puts on the pa
 | `diagnostics/`: `addOracleDoa.m`, `acousticCentre.m` | the protocol bearing: the source straight ahead of the reference pose (the wearer faces the loudspeaker during the in-take sweep; for the corridor's static and head-only takes, which have no sweep, `faces_source_at_reference` in `config/rooms.json`) at the omni-measured distance, followed through the tracked pose; bearing and range per sample from the head's acoustic centre |
 | `diagnostics/`: `snapToAtf.m`, `doaErrVsOracle.m` | DoA errors against the protocol bearing, before and after the beamformer snaps to the ATF grid |
 | `diagnostics/`: `beamform.m` | the MUSIC + MPDR front end steered along a given trajectory, via the one modified upstream function in `upstream_modified/` (see its README) |
+| `diagnostics/`: `musicWorldFrame.m` | MUSIC's estimates fitted to one source position using the pose: the glasses' own source bearing (`sourceBearing.m`); not used to steer |
 
 **Oracle front-end candidates -- `dereverb/` (`run.py oracle`)**
 
 `oracle.py` builds candidate pseudo-references with the source known, to measure what parts of today's reference cost accuracy: the floor echo removed (as measured, and as a simple echo model), all early reflections removed (by subtraction, and by inverse filtering), and the split into the reference's fixed part only and the perfect front end plus its non-fixed residual. They go through `evalDereverb` like any dereverberator; `analysis/dereverb.py` reads them.
+
+**Scene geometry -- `geometry/` (`run.py geometry`)**
+
+`scene.py` takes each take's MPS semidense point cloud into the take's frame and derives, from
+the glasses alone, the room box (wall-aligned, 1st-99th percentile; volume and surface) and the
+source distance (the nearest dense surface along the glasses' acoustic bearing, from
+`sourceBearing.m`). `analysis/geometric_drr.py` turns them, with the blind T20, into a DRR estimate.
 
 **Analysis -- `analysis/` (results -> tables and figures)**
 
@@ -92,6 +101,7 @@ Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MA
 | `blocksweep.py` | RQ2: T20 error against block length, walking and static takes, optionally beside the reference study's own sweep -> `results/blocksweep/` |
 | `frontend.py` | RQ2: the front-end anchors, against the omni reference and as deviation from the informed estimate of the same take -> `results/frontend/` |
 | `dereverb.py` | RQ2/RQ3: the oracle candidates on the front-end ladder, and the share of the headroom each recovers -> `results/dereverb/summary.md` |
+| `geometric_drr.py` | RQ3: DRR from the diffuse-field model (SLAM volume, blind T20, vision distance; one constant fitted leave-one-room-out on the four rooms recorded first, frozen for the held-out room) against the acoustic DRR, plus the geometry's own error budget -> `results/geometry/drr_summary.md` |
 
 **Configuration**: `config/rooms.json` defines the dataset -- every room, every
 take, the files each uses, and every exclusion with its reason.
@@ -125,12 +135,10 @@ rooms and then applied to it unchanged.
 
 ## Not in here (yet)
 
-Still in the working repository, to be ported as the thesis needs them: the
+Still in the working repository, to be ported if the thesis needs them: the
 controlled-contamination (dose-response) curves and blind equalisation of the
-pseudo-reference (where the blind pipeline loses accuracy); block length from
-the glasses alone and the SLAM/OptiTrack pose comparison (glasses-only
-operation); and the scene-geometry estimates: SLAM room volume, vision
-distance and geometric DRR.
+pseudo-reference; block length from the glasses alone and the SLAM/OptiTrack
+pose comparison (glasses-only operation).
 
 Deliberately excluded: the composite drive generator, because the files
 actually played (118 s) were not produced by it -- the played drive signals
@@ -167,6 +175,8 @@ python analysis/decomposition.py                 # RQ2 movement x estimation -> 
 python analysis/blocksweep.py                    # RQ2 block length -> results/blocksweep/
 python analysis/frontend.py                      # RQ2 front end -> results/frontend/
 python analysis/dereverb.py                      # RQ2/RQ3 oracle candidates -> results/dereverb/
+python run.py geometry                           # RQ3 bearing, room box, vision distance -> results/geometry/
+python analysis/geometric_drr.py                 # RQ3 geometric DRR -> results/geometry/
 ```
 
 `run.py` builds each stage's job list from `config/rooms.json`, skips jobs whose output
