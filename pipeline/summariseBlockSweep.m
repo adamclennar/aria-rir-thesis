@@ -1,7 +1,7 @@
 function T = summariseBlockSweep(takes)
 % Score every block-length result of the given walking takes - the baseline
 % (results/pipeline/<take>.mat, the room's rule block) and the sweep
-% (<take>_blk<ms>.mat, from run_blocksweep.sh) - against the room
+% (<take>_blk<ms>.mat, from run.py blocksweep) - against the room
 % references, and write one row per (take, block length, condition) to
 % results/blocksweep/blocksweep.csv: the summary T20 errors (mean absolute,
 % median, rms), every band's T20 and error, the DRR error under both

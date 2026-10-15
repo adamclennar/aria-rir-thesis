@@ -4,7 +4,7 @@
     python analysis/frontend.py
 
 Reads results/frontend/<take>_anchors.csv (pipeline/frontEndAnchors.m, via
-run_anchors.sh) and writes results/frontend/:
+run.py anchors) and writes results/frontend/:
 
   tests.csv        every comparison below, every metric, both RLS models
   fig_ladder.png   primary T20 error per condition and movement (motion-aware)
@@ -256,7 +256,7 @@ def figure(data: dict, path: Path) -> None:
 def main() -> int:
     data = load()
     if not any(data.values()):
-        raise SystemExit(f"no {DIR.relative_to(ROOT)}/*_anchors.csv yet: run ./run_anchors.sh first")
+        raise SystemExit(f"no {DIR.relative_to(ROOT)}/*_anchors.csv yet: run python run.py anchors first")
     Tt = [r for k in ROOM_SETS for r in tests(data[k], k)]
     if Tt:
         with open(DIR / "tests.csv", "w", newline="") as fh:
