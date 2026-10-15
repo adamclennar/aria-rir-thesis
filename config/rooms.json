@@ -411,12 +411,26 @@
         "lshape_maleSpeech_headMove": {
           "vrs": "L_shape_head_moving_male_tracked.vrs",
           "speaker": "male",
-          "motion": "head"
+          "motion": "head",
+          "optitrack_csv": "L_shape_head_moving_male_tracked.csv",
+          "pose_source": "mps",
+          "source_span_s": [
+            3.7,
+            66.0
+          ],
+          "note": "trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-3.55 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume); the OptiTrack-pose twin is trimmed identically"
         },
         "lshape_femaleSpeech_headMove": {
           "vrs": "L_shape_head_moving_female_tracked.vrs",
           "speaker": "female",
-          "motion": "head"
+          "motion": "head",
+          "optitrack_csv": "L_shape_head_moving_female_tracked.csv",
+          "pose_source": "mps",
+          "source_span_s": [
+            3.1,
+            65.6
+          ],
+          "note": "trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-2.97 s and 65.69-66.0 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume); the OptiTrack-pose twin is trimmed identically"
         },
         "lshape_maleSpeech_fullMove": {
           "vrs": "L_shape_full_moving_male_tracked.vrs",
@@ -477,6 +491,30 @@
           "source_span_s": [
             3.8,
             55.7
+          ]
+        },
+        "lshape_maleSpeech_headMoveOpti": {
+          "vrs": "L_shape_head_moving_male_tracked.vrs",
+          "speaker": "male",
+          "motion": "head",
+          "optitrack_csv": "L_shape_head_moving_male_tracked.csv",
+          "pose_source": "optitrack",
+          "note": "OptiTrack-pose twin of lshape_maleSpeech_headMove: same audio, placement and reference instant (both chosen from the SLAM pose), with the OptiTrack pose; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-3.55 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume). The OptiTrack link (optitrack_link) was fitted on these two head-moving takes, so the comparison here is partly in-sample",
+          "source_span_s": [
+            3.7,
+            66.0
+          ]
+        },
+        "lshape_femaleSpeech_headMoveOpti": {
+          "vrs": "L_shape_head_moving_female_tracked.vrs",
+          "speaker": "female",
+          "motion": "head",
+          "optitrack_csv": "L_shape_head_moving_female_tracked.csv",
+          "pose_source": "optitrack",
+          "note": "OptiTrack-pose twin of lshape_femaleSpeech_headMove: same audio, placement and reference instant (both chosen from the SLAM pose), with the OptiTrack pose; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-2.97 s and 65.69-66.0 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume). The OptiTrack link (optitrack_link) was fitted on these two head-moving takes, so the comparison here is partly in-sample",
+          "source_span_s": [
+            3.1,
+            65.6
           ]
         }
       },

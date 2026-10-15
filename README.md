@@ -97,6 +97,7 @@ Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MA
 |---|---|
 | `reproduction.py` | RQ1: the paper's Table 2 (DRR, both windows), Fig. 7 (T20 per band) and Fig. 8 (RMS per band) per movement type, plus per-room errors -> `results/reproduction/` |
 | `stats.py` | shared by the scripts below: the primary T20 measure and its sensitivity band sets, and the paired tests (bootstrap CI of the median, exact sign and Wilcoxon) |
+| `pose.py` | RQ1: the glasses' SLAM pose against OptiTrack on the L-shape walking and head-only takes: the yaw and translation the motion-aware model uses, the build's tracking agreement, and the `*Opti` twins' T20 and DRR errors -> `results/pose/summary.md` |
 | `decomposition.py` | RQ2: what movement costs and what blind estimation costs on top, per metric, paired -> `results/decomposition/` |
 | `blocksweep.py` | RQ2: T20 error against block length, walking and static takes, optionally beside the reference study's own sweep -> `results/blocksweep/` |
 | `frontend.py` | RQ2: the front-end anchors, against the omni reference and as deviation from the informed estimate of the same take -> `results/frontend/` |
@@ -112,9 +113,9 @@ end of the same corridor, opening into a larger room -- acoustically the same
 space (T20 within ~5 % of the corridor's in six of seven octave bands) -- with
 OptiTrack running. They exist for the pose-source comparison (the `*Opti`
 takes: the same audio, placement and reference instant with OptiTrack pose
-instead of SLAM), not as an additional room. Both versions of each walking
-take are trimmed to the span OptiTrack tracks completely, so the comparison
-is pure SLAM against pure OptiTrack.
+instead of SLAM), not as an additional room. Both versions of each tracked
+walking and head-only take are trimmed to the span OptiTrack tracks
+completely, so the comparison is pure SLAM against pure OptiTrack.
 
 The small meeting room (`"held_out": true`) was recorded last, after
 everything else was settled. It follows the composite protocol but has no SM57
@@ -137,8 +138,8 @@ rooms and then applied to it unchanged.
 
 Still in the working repository, to be ported if the thesis needs them: the
 controlled-contamination (dose-response) curves and blind equalisation of the
-pseudo-reference; block length from the glasses alone and the SLAM/OptiTrack
-pose comparison (glasses-only operation).
+pseudo-reference; block length from the glasses alone (glasses-only
+operation).
 
 Deliberately excluded: the composite drive generator, because the files
 actually played (118 s) were not produced by it -- the played drive signals
@@ -169,6 +170,7 @@ python run.py baseline                           # stage 2: the paper's four con
 python run.py rescore                            # every saved result -> results/pipeline/summary.csv
 python run.py blocksweep                         # walking and static takes at 0.5x / 1.5x / 2x the rule block
 python analysis/reproduction.py                  # RQ1 tables and figures -> results/reproduction/
+python analysis/pose.py                          # RQ1 SLAM vs OptiTrack pose -> results/pose/
 python run.py anchors                            # RQ2 front-end anchors, takes with a protocol bearing
 python run.py oracle                             # RQ2/RQ3 oracle candidates (exportInputs, dereverb/oracle.py, evalDereverb)
 python analysis/decomposition.py                 # RQ2 movement x estimation -> results/decomposition/
