@@ -18,13 +18,18 @@ using the reference pose build_take stored in the take's meta:  p_W' = Rz(-yaw_r
              nearby furniture.
   distance   along the glasses' acoustic source bearing (pipeline/sourceBearing.m, measured
              from the head's acoustic centre at the reference pose, c0 = (-0.08, 0)): the points
-             within +-7 deg of it, in a height band -0.8..+0.3 m around eye level, 0.6-20 m away;
+             within +-9 deg of it, in a height band -0.8..+0.3 m around eye level, 0.6-20 m away;
              the nearest 30 cm window at least half as dense as the densest one (along its
              bearing the loudspeaker is one of the strongest SLAM clusters, and what lies behind
              it is partly occluded: the plain nearest surface fires on foreground clutter, the
              densest one on the wall behind the source); r = the median horizontal distance of
              the points in that window. The 0.5 density ratio was chosen on eight walking takes
-             of the four rooms recorded first; it is frozen for everything else.
+             of the four rooms recorded first; it is frozen for everything else. The cone is sized
+             to the acoustic bearing's own error, which on those four rooms is 3.0 deg (median),
+             6.5 deg (90th percentile) and 9.5 deg (max) against the protocol bearing: at 2 m the
+             loudspeaker spans only a few degrees, so a cone narrower than the bearing error
+             grazes it and lets a wide nearby surface or the wall behind win. +-9 deg is the
+             narrowest cone with no failure on those rooms (+-7 deg failed two of the 27 takes).
 
 Blind: no source signal, no oracle -- the acoustic bearing and the visual geometry only. Writes
 results/geometry/scene.csv (take, room box, distance) and a top / side view per take in
@@ -46,7 +51,7 @@ RAW = Path(json.loads((ROOT / "config" / "paths.json").read_text())["raw_root"])
 OUT = ROOT / "results" / "geometry"
 C0 = np.array([-0.08, 0.0])          # the head's acoustic centre at the reference pose (acousticCentre.m)
 STD_MAX = 0.05                       # m, MPS point depth uncertainty
-CONE, ZBAND, RMIN, RMAX = 7.0, (-0.8, 0.3), 0.6, 20.0
+CONE, ZBAND, RMIN, RMAX = 9.0, (-0.8, 0.3), 0.6, 20.0     # CONE: deg, sized to the bearing error (above)
 WIN, STEP, REL = 0.30, 0.05, 0.5
 
 
