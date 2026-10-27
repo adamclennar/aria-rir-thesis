@@ -22,7 +22,7 @@ they are part of the SLAM/OptiTrack pose comparison (an OptiTrack recording link
 and only for baseline and rescore: the room exists for that comparison. Each stage defaults to the
 takes it needs:
   baseline    every take
-  blocksweep  walking and static takes of the composite rooms
+  blocksweep  every take of the composite rooms (static, head-only and walking)
   anchors     takes with a protocol bearing: an in-take sweep, or faces_source_at_reference
   oracle      the same takes, where the wearer does not walk
   geometry    every take of the composite rooms
@@ -165,7 +165,7 @@ def rescore(a) -> bool:
 
 
 def blocksweep(a) -> bool:
-    takes = select(a, lambda d: composite(d) and d["movement"] in ("static", "fullMove"))
+    takes = select(a, composite)
     jobs = []
     for t in takes:
         rule = rule_block(t.split("_")[0])
