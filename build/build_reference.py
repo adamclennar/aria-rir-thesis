@@ -25,11 +25,11 @@ wearer stands. So RT *and* DRR transfer -- the measured DRR (office +0.6,
 corridor -2.5, reverb -6.3 dB) is what a listener-position mic reads, not a
 near-field one. Two caveats when comparing DRR with an estimate: a free-field
 omni is not the array's order-0 channel on a head (they agree at low
-frequency and diverge where the head shadows), and the stand sat just under
-shoulder height (~1.30 m) rather than at head height (~1.62 m). The height
-offset is 1.8 cm of path at 2 m -- nothing for distance or direct level --
-but it moves the floor-bounce comb notch from 110 to 130 Hz, so the 125 Hz
-band is indicative only.
+frequency and diverge where the head shadows), and the stand sat at 1.42 m
+rather than at head height (~1.62 m). For a source at 1.4-1.6 m, 2 m away, the
+height offset changes the direct path by about 1 cm -- nothing for distance or
+direct level -- but it moves the first floor-bounce notch by about 10 Hz (it
+lies near 95-115 Hz), inside the 125 Hz band, so that band is indicative only.
 
 The source-receiver distance also follows: the deconvolution peak minus the
 playback chain's electronic latency (CHAIN_MS, calibrated below) is the
@@ -60,9 +60,11 @@ IR_LEN_S, PRE_S = 3.0, 0.005
 # cone (DAC, amp, driver, minus whatever the DAW compensated). CALIBRATED:
 # each room's deconvolution peak minus its tape-measured source distance gives
 # 1.09 / 1.17 / 1.17 ms (office / corridor / reverb) -- a 0.08 ms spread, i.e.
-# 2.7 cm. Do not confuse it with the 2.58 ms lag between the drive file and the
-# near-field SM57 recording: that mic sits 0.49 m from the cone, so it carries
-# 1.44 ms of propagation on top of this.
+# 2.7 cm. Do not confuse it with the lag between the drive file and the
+# near-field SM57 recording (2.58 ms where it was checked): that mic sat 0.30 m
+# from the cone, only 0.87 ms of propagation, so the rest of that lag is the
+# SM57's own recording path, not acoustics. build_take measures the SM57 lag
+# per take and never assumes it.
 CHAIN_MS = 1.14
 C = 343.0
 

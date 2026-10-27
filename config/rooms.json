@@ -1,5 +1,5 @@
 {
-  "_comment": "faces_source_at_reference marks a take without an in-take sweep whose reference pose still faces the loudspeaker, so the diagnostics' protocol bearing applies (pipeline/diagnostics/addOracleDoa.m). One entry per room. Paths are relative to raw_root, which is set per machine in config/paths.json. 'takes' map the output stem to the raw VRS + MPS folder; 'drive' names the loudspeaker drive file used for that take. 'exclude' lists takes to skip and why. 'motion' is static|head|full, a label. 'sweeps' are recorded with an OMNI microphone on a stand at the listening position (so the reference RIR carries RT, DRR and the source distance); 'sm57' are the near-field recordings at the loudspeaker used as the alternative informed source signal. 'distance_m' is the tape-measured loudspeaker-to-listening-position distance; build_reference cross-checks its derived distance against it. 'omni_mic_height_m' / 'source_height_m' record the sweep geometry: the omni sat on a stand just under shoulder height, below the wearer's head, which shifts the floor-bounce comb notch within the 125 Hz band (see README). Composite-protocol rooms (clicks -> sweep -> speech in one played file) add 'speech_span_s' (the speech inside the drive file), 'source_span_s' (the portion kept as sourceSig / the take trim, i.e. the speech file's own extent) and 'sweep_span_s' (the sweep excitation inside the drive file: its lead, the sweep, and the silence after it, but STOPPING BEFORE THE SPEECH BEGINS at 52.5 s. Running it to the end of the sweep file (55.625 s) puts 3.1 s of speech into the excitation, which the deconvolution then treats as part of the sweep -- harmless-looking in a reverberant room but it doubled the measured T20 at 125-250 Hz in the dry office. It yields the 7-channel array RIR in the IRs field). Any of 'drive', 'sm57', 'speech_span_s', 'source_span_s', and 'sweep_span_s' may also be set PER TAKE, which overrides the room-level value. The corridor needs this: its static and head-moving takes (Sep 21) played the old 66 s speech-only file, while its walking takes were re-recorded on Sep 23 with the 118 s composite, so the protocol is a property of the take there rather than of the room. 'sm57' may be null, which omits sourceSigSm57: the corridor walking takes have no near-field recording of the composite, and borrowing another room's would put that room's early reflections into a corridor reference. A take may set 'ref_time_s' (seconds from the start of the recording) to fix the reference instant instead of searching for the stillest window; the two L-shape walking takes need it, because their stillest moments had the loudspeaker at +108 and +162 deg (beside and behind the wearer). Their times are moments OptiTrack shows the wearer facing it (median within 4 deg). A take may set 'mps' to override the default mps_<vrs stem>_vrs folder; meeting_maleSpeech_fullMove needs it because the folder bearing its name holds a trajectory from another recording (verified by device-clock overlap). build_take refuses any MPS whose span does not cover the audio.",
+  "_comment": "faces_source_at_reference marks a take without an in-take sweep whose reference pose still faces the loudspeaker, so the diagnostics' protocol bearing applies (pipeline/diagnostics/addOracleDoa.m). One entry per room. Paths are relative to raw_root, which is set per machine in config/paths.json. 'takes' map the output stem to the raw VRS + MPS folder; 'drive' names the loudspeaker drive file used for that take. 'exclude' lists takes to skip and why. 'motion' is static|head|full, a label. 'sweeps' are recorded with an OMNI microphone on a stand at the listening position (so the reference RIR carries RT, DRR and the source distance); 'sm57' are the near-field recordings at the loudspeaker (Shure SM57, 0.30 m from the cone) used as the alternative informed source signal. 'distance_m' is the tape-measured loudspeaker-to-listening-position distance; build_reference cross-checks its derived distance against it. 'omni_mic_height_m' / 'source_height_m' record the sweep geometry: the omni sat on a stand at 1.42 m, about 0.2 m below the wearer's head, which shifts the floor-bounce comb notch by about 10 Hz within the 125 Hz band (build/build_reference.py). Composite-protocol rooms (clicks -> sweep -> speech in one played file) add 'speech_span_s' (the speech inside the drive file), 'source_span_s' (the portion kept as sourceSig / the take trim, i.e. the speech file's own extent) and 'sweep_span_s' (the sweep excitation inside the drive file: its lead, the sweep, and the silence after it, but STOPPING BEFORE THE SPEECH BEGINS at 52.5 s. Running it to the end of the sweep file (55.625 s) puts 3.1 s of speech into the excitation, which the deconvolution then treats as part of the sweep -- harmless-looking in a reverberant room but it doubled the measured T20 at 125-250 Hz in the dry office. It yields the 7-channel array RIR in the IRs field). Any of 'drive', 'sm57', 'speech_span_s', 'source_span_s', and 'sweep_span_s' may also be set PER TAKE, which overrides the room-level value. The corridor needs this: its static and head-moving takes (Sep 21) played the old 66 s speech-only file, while its walking takes were re-recorded on Sep 23 with the 118 s composite, so the protocol is a property of the take there rather than of the room. 'sm57' may be null, which omits sourceSigSm57: the corridor walking takes have no near-field recording of the composite, and borrowing another room's would put that room's early reflections into a corridor reference. A take may set 'ref_time_s' (seconds from the start of the recording) to fix the reference instant instead of searching for the stillest window; the two L-shape walking takes need it, because their stillest moments had the loudspeaker at +108 and +162 deg (beside and behind the wearer). Their times are moments OptiTrack shows the wearer facing it (median within 4 deg). A take may set 'mps' to override the default mps_<vrs stem>_vrs folder; meeting_maleSpeech_fullMove needs it because the folder bearing its name holds a trajectory from another recording (verified by device-clock overlap). build_take refuses any MPS whose span does not cover the audio.",
   "rooms": {
     "office": {
       "aria_dir": "L2_Office_aria",
@@ -60,7 +60,7 @@
       },
       "exclude": {},
       "distance_m": 2.0,
-      "omni_mic_height_m": 1.3,
+      "omni_mic_height_m": 1.42,
       "source_height_m": null,
       "speech_span_s": [
         52.5,
@@ -218,7 +218,7 @@
         "corridor_femaleSpeech_fullMove_old": "superseded by corridor_femaleSpeech_fullMove. Also failed the sourceSig placement validation on its own terms: the direct path landed 113 samples (2.4 ms) from the 10 ms target, the weakest alignment in the set (coarse corr 0.10, 4/12 speech-wide PHAT inliers)."
       },
       "distance_m": 2.7,
-      "omni_mic_height_m": 1.3,
+      "omni_mic_height_m": 1.42,
       "source_height_m": null,
       "dims_m": [
         16.7,
@@ -238,7 +238,7 @@
       ],
       "noise_floor": null,
       "distance_m": 2.2,
-      "omni_mic_height_m": 1.3,
+      "omni_mic_height_m": 1.42,
       "source_height_m": null,
       "speech_span_s": [
         52.5,
@@ -311,7 +311,7 @@
       ],
       "noise_floor": null,
       "distance_m": 2.7,
-      "omni_mic_height_m": 1.3,
+      "omni_mic_height_m": 1.42,
       "source_height_m": null,
       "speech_span_s": [
         52.5,
@@ -520,7 +520,7 @@
       },
       "exclude": {},
       "distance_m": 2.13,
-      "omni_mic_height_m": null,
+      "omni_mic_height_m": 1.42,
       "source_height_m": null,
       "note": "Sep 20 session, old protocol (stand on the mark, 66 s speech-only drive; no in-take sweep). Pose from MPS (added Oct 5); OptiTrack (L_shape_room_optitrack/) kept as an independent check. L_shape_room_aria/L_shape_audio_sweeps/ holds six separate array-side sweep recordings (Sep 23, 3 with OptiTrack markers on the glasses, 3 without), same loudspeaker and mark as the Sep 20 takes (confirmed by the recordist).",
       "array_sweeps": {
@@ -587,7 +587,7 @@
       ],
       "noise_floor": null,
       "distance_m": null,
-      "omni_mic_height_m": null,
+      "omni_mic_height_m": 1.42,
       "source_height_m": null,
       "speech_span_s": [
         52.5,
@@ -651,7 +651,7 @@
       },
       "exclude": {},
       "held_out": true,
-      "note": "Recorded 2026-10-10, after the four other composite rooms were processed. Pooled with them wherever nothing is fitted or chosen; held out (the held_out flag) for whatever is: the glasses-only block rule, the geometry constants, the dereverberator design. Composite protocol as reverb/corridor (the drive files are byte-identical to those rooms'). No SM57 recorded. distance_m, omni_mic_height_m and dims_m to be added from the tape measurements."
+      "note": "Recorded 2026-10-10, after the four other composite rooms were processed. Pooled with them wherever nothing is fitted or chosen; held out (the held_out flag) for whatever is: the glasses-only block rule, the geometry constants, the dereverberator design. Composite protocol as reverb/corridor (the drive files are byte-identical to those rooms'). No SM57 recorded. distance_m and dims_m to be added from the tape measurements."
     }
   }
 }
