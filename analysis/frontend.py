@@ -66,10 +66,14 @@ COMPARISONS = [
     ("movement", "perfect_frontend", "informed_lvl_matched"),
     ("level", "informed", "informed_lvl_matched"),
 ]
-LADDER = {"nowpe_oracle_steering": "No WPE,\noracle\nsteering", "published": "Published\n(WPE, MUSIC\nsteering)",
-          "wpe_oracle_steering": "WPE,\noracle\nsteering", "perfect_frontend": "Perfect\nfront end",
-          "informed_lvl_matched": "Informed\n(level-\nmatched)"}
+LADDER = {"nowpe_oracle_steering": "No WPE\n(oracle\nsteering)", "published": "Published\n(WPE, MUSIC\nsteering)",
+          "wpe_oracle_steering": "Fixed\nsteering\n(WPE, oracle)", "perfect_frontend": "Perfect\nfront end",
+          "informed_lvl_matched": "Informed,\nmatched\nlevel"}
 COLOURS = {"static": "#2a78d6", "headMove": "#eb6834", "fullMove": "#1baf7a"}
+# the figure's two groups: static and head-only follow the same trends; colours carried over from the
+# three-movement version (static's blue, walking's aqua)
+GROUPS = {"Not walking": ("static", "headMove"), "Walking": ("fullMove",)}
+GROUP_COLOURS = {"Not walking": "#2a78d6", "Walking": "#1baf7a"}
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 METRICS = {f"t20_{k}": ((lambda r, b=b: S.t20_err(r, b, "t20Err_{}")), "pp") for k, b in S.BAND_SETS.items()}
 METRICS["drr_repo"] = (lambda r: abs(S.num(r["drrErr"])), "dB")
@@ -121,13 +125,13 @@ def pooled_headroom(data: dict) -> str:
     return "--" if r is None else f"perfect_frontend - wpe_oracle_steering: {S.fmt_paired(r, 'pp')}"
 
 
-def deviation(data: dict, take: str, label: str, model: str, signed: bool = False) -> float:
-    """Mean over the T_mid bands of (relative error of label) - (relative error of informed_lvl_matched),
-    same take and model: absolute by default, signed if asked."""
+def deviation(data: dict, take: str, label: str, model: str, signed: bool = False, bands=None) -> float:
+    """Mean over the T_mid bands (or `bands`) of (relative error of label) - (relative error of
+    informed_lvl_matched), same take and model: absolute by default, signed if asked."""
     r, ri = data[take].get((label, model)), data[take].get(("informed_lvl_matched", model))
     if not r or not ri:
         return math.nan
-    d = [S.num(r[f"t20Err_{b}"]) - S.num(ri[f"t20Err_{b}"]) for b in S.BAND_SETS[S.PRIMARY]]
+    d = [S.num(r[f"t20Err_{b}"]) - S.num(ri[f"t20Err_{b}"]) for b in (bands or S.BAND_SETS[S.PRIMARY])]
     return float(np.mean(d)) if signed else float(np.mean(np.abs(d)))
 
 
@@ -181,7 +185,7 @@ def md_sensitivity(Tt: list[dict], set_name: str, model: str = "motionAware") ->
     mets = list(METRICS)
     idx = {(r["a"], r["b"], r["movement"], r["metric"]): r for r in Tt
            if r["rooms"] == set_name and r["model"] == model}
-    lines = ["| Comparison | Movement | " + " | ".join(mets) + " |", "|---|---|" + "---|" * len(mets)]
+    lines = ["| Comparison | Movement | " + " | ".join(m.replace("drr_repo", "drr_wide") for m in mets) + " |", "|---|---|" + "---|" * len(mets)]
     for kind, a, b in COMPARISONS:
         for mov, name in MOVEMENTS.items():
             if not any((a, b, mov, m) in idx for m in mets):
@@ -192,6 +196,32 @@ def md_sensitivity(Tt: list[dict], set_name: str, model: str = "motionAware") ->
                 cells.append("--" if r is None else f"{r['median']:+.1f}{'*' if r['p_wilcoxon'] < 0.05 else ''} "
                                                     f"({r['down']}/{r['n']})")
             lines.append(f"| {a} - {b} | {name} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def signed_drr(data: dict, take: str, label: str, model: str) -> float:
+    r = data[take].get((label, model))
+    return S.num(r["drrErrPaper"]) if r else math.nan          # the paper's window
+
+
+def md_ladder(data: dict) -> str:
+    """Median [interquartile range] over takes of |T20 error| (T_mid) and |DRR error| (paper's window) per condition,
+    not walking vs walking, both models: the figure. And the median SIGNED DRR error: |error| hides that
+    fixed steering moves the walking estimate from too low to too high."""
+    labs = list(LADDER)
+    lines = ["| Model | Group | Metric | Takes | " + " | ".join(labs) + " |", "|---|---|---|---|" + "---|" * len(labs)]
+    for model, mname in (("motionAware", "Motion-aware"), ("omni", "Omni")):
+        for g, movs in GROUPS.items():
+            T = [t for t in data if movement(t) in movs]
+            for metric, f in (("abs. T20 error, T_mid (%)", lambda t, lab: value(data, t, lab, model, PRIMARY)),
+                              ("abs. DRR error (dB)", lambda t, lab: value(data, t, lab, model, "drr_paper"))):
+                cells = []
+                for lab in labs:
+                    q1, med, q3 = np.nanpercentile([f(t, lab) for t in T], [25, 50, 75])
+                    cells.append(f"{med:.1f} [{q1:.1f}-{q3:.1f}]")
+                lines.append(f"| {mname} | {g} | {metric} | {len(T)} | " + " | ".join(cells) + " |")
+            cells = [f"{np.nanmedian([signed_drr(data, t, lab, model) for t in T]):+.1f}" for lab in labs]
+            lines.append(f"| {mname} | {g} | DRR, signed (dB) | {len(T)} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 
@@ -213,26 +243,39 @@ def md_means(data: dict) -> str:
 
 
 def figure(data: dict, path: Path) -> None:
-    """The ladder: T_mid and DRR (repo window) per condition and movement, for each model (means).
-    Points above the axis (no WPE) are drawn at the top edge with their value."""
-    panels = [("t20_T_mid", "Mean |T20 error|, 500 Hz + 1 kHz (%)", 40), ("drr_repo", "Mean |DRR error| (dB)", 9)]
-    models = [("motionAware", "Motion-aware"), ("omni", "Omni")]
-    fig, axes = plt.subplots(2, 2, figsize=(10, 6.2), sharex=True, sharey="row", constrained_layout=True)
+    """The ladder: |T20 error| (T_mid) and |DRR error| (paper's window) per condition, not walking (static and
+    head-only, which follow the same trends) vs walking, for each model; median and interquartile range over
+    takes, as the paired tests use. Medians beyond the axis are drawn as a triangle at its top, labelled with median
+    [interquartile range]."""
+    models = [("motionAware", "Motion-aware"), ("omni", "Omnidirectional")]
+    fig, axes = plt.subplots(2, 2, figsize=(10.4, 6.8), sharex=True, sharey="col", constrained_layout=True)
     x = np.arange(len(LADDER))
-    for row, (met, ylab, ymax) in enumerate(panels):
-        for col, (model, mname) in enumerate(models):
+    for row, (model, mname) in enumerate(models):
+        for col, (title, met, hi) in enumerate((("|T20 error|, T_mid (%)", PRIMARY, 40),
+                                                 ("|DRR error| (dB)", "drr_paper", 10))):
             ax = axes[row, col]
-            for k, (mov, name) in enumerate(MOVEMENTS.items()):
-                T = [t for t in data if movement(t) == mov]
-                m = np.array([np.nanmean([value(data, t, lab, model, met) for t in T]) for lab in LADDER])
-                xs = x + (k - 1) * 0.08
-                ax.plot(xs, np.minimum(m, ymax), "o-", ms=5, lw=1.5, color=COLOURS[mov],
-                        label=f"{name} ({len(T)} takes)", clip_on=False, zorder=3)
-                for xi, mi in zip(xs, m):
-                    if mi > ymax:
-                        ax.annotate(f"{mi:.0f}", (xi, ymax), xytext=(0, 5), textcoords="offset points",
-                                    ha="center", fontsize=7.5, color=COLOURS[mov])
-            ax.set_ylim(0, ymax)
+            for k, (g, movs) in enumerate(GROUPS.items()):
+                T = [t for t in data if movement(t) in movs]
+                q = np.array([np.nanpercentile([value(data, t, lab, model, met) for t in T], [25, 50, 75])
+                              for lab in LADDER])
+                q1, med, q3 = q[:, 0], q[:, 1], q[:, 2]
+                xs = x + (k - 0.5) * 0.12
+                inside = med <= hi                          # no bar around a median drawn at the axis edge
+                ax.errorbar(xs[inside], med[inside], yerr=[med[inside] - q1[inside], q3[inside] - med[inside]],
+                            fmt="none", ecolor=GROUP_COLOURS[g], elinewidth=1.2, capsize=2.5, alpha=0.75, zorder=2)
+                # markers only: the conditions are categories, so no line joins them
+                ax.plot(xs[inside], med[inside], "o", ms=6, color=GROUP_COLOURS[g], zorder=3,
+                        markeredgecolor="white", markeredgewidth=1,
+                        label=f"{g} ({len(T)} takes)" if row == 0 and col == 0 else None)
+                # a median beyond the axis: a triangle just inside its top, labelled beside it (clear of the title)
+                ytop = 0.95 * hi
+                ax.plot(xs[~inside], np.full((~inside).sum(), ytop), "^", ms=7, color=GROUP_COLOURS[g], zorder=3,
+                        markeredgecolor="white", markeredgewidth=1)
+                for xi, a, m, b in zip(xs[~inside], q1[~inside], med[~inside], q3[~inside]):
+                    ax.annotate(f"{m:.0f} [{a:.0f}-{b:.0f}]", (xi, ytop), xytext=(7, 0), textcoords="offset points",
+                                ha="left", va="center", fontsize=8, color=GROUP_COLOURS[g])
+            ax.set_ylim(0, hi)
+            ax.set_title(f"{mname}: {title}", loc="left", fontsize=10, color=INK, pad=12)
             ax.grid(axis="y", color=GRID, lw=0.8)
             ax.set_axisbelow(True)
             for side in ("top", "right"):
@@ -240,15 +283,12 @@ def figure(data: dict, path: Path) -> None:
             for side in ("left", "bottom"):
                 ax.spines[side].set_color(MUTED)
             ax.tick_params(colors=MUTED, labelsize=8)
-            if row == 0:
-                ax.set_title(mname, loc="left", fontsize=10, color=INK, pad=14)
-            if col == 0:
-                ax.set_ylabel(ylab, fontsize=9, color=MUTED)
+            ax.tick_params(axis="x", colors=INK)
     for ax in axes[-1]:
         ax.set_xticks(x, list(LADDER.values()))
-    axes[0, 1].legend(frameon=False, fontsize=8, labelcolor=INK, loc="upper right")
-    fig.suptitle("Front end: from no dereverberation to a perfect pseudo-reference (all five rooms; "
-                 "values above the axis are labelled)", x=0.01, ha="left", fontsize=11, color=INK)
+    axes[0, 0].legend(frameon=False, fontsize=8.5, labelcolor=INK, loc="upper right")
+    fig.suptitle("Front end: from no dereverberation to a perfect pseudo-reference (median and interquartile range "
+                 "over takes)", x=0.01, ha="left", fontsize=11, color=INK)
     fig.savefig(path, dpi=200)
     plt.close(fig)
 
@@ -277,6 +317,10 @@ difference A - B [bootstrap 95% CI], pairs where A was lower, exact sign and Wil
 
 ## Deviation from the informed estimate of the same take (T_mid; pp, signed mean in brackets)
 {md_deviation(data["all"])}
+
+## The ladder (fig_ladder.png): median [interquartile range] over takes; signed DRR: positive = too high
+
+{md_ladder(data["all"])}
 
 ## Mean primary error per condition (takes in brackets)
 

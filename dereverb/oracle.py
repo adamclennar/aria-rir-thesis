@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Oracle early-reflection candidates: what removing early reflections from the
-pseudo-reference would do, measured with the source known (RQ3, step 1).
+pseudo-reference would do, measured with the source known (RQ2).
 
     python dereverb/oracle.py [<take> ...]      # default: results/dereverb/takes_step1.txt
 

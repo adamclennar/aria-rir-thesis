@@ -15,7 +15,7 @@ results/decomposition/:
                   checks
 
 Metrics: mean |T20 error| under the primary band set (T_mid: 500 Hz and 1 kHz)
-and the two sensitivity sets (stats.BAND_SETS); |DRR error| under both
+and the other band groups (stats.BAND_SETS); |DRR error| under both
 direct-sound windows; the tonal-balance error at the microphones.
 
 Comparisons, each paired (stats.paired):
@@ -32,6 +32,7 @@ out only where something is fitted or chosen); the L-shape takes not at all
 from __future__ import annotations
 
 import csv
+import itertools
 import math
 from collections import defaultdict
 from pathlib import Path
@@ -191,7 +192,7 @@ def sensitivity(Tt: list[dict], set_name: str) -> str:
                 comps.append(r["comparison"])
     mets = list(METRICS)
     idx = {(r["comparison"], r["metric"]): r for r in Tt if r["rooms"] == set_name}
-    head = "| Comparison | " + " | ".join(mets) + " |\n|---|" + "---|" * len(mets)
+    head = "| Comparison | " + " | ".join(m.replace("drr_repo", "drr_wide") for m in mets) + " |\n|---|" + "---|" * len(mets)
     lines = [head]
     for c in comps:
         cells = []
@@ -204,45 +205,40 @@ def sensitivity(Tt: list[dict], set_name: str) -> str:
 
 
 def figure(data: dict, path: Path) -> None:
-    """T_mid and DRR (repo window) by movement, informed vs blind, for each model. Bar = mean, dots = takes."""
-    panels = [("t20_T_mid", "|T20 error|, 500 Hz + 1 kHz (%)"), ("drr_repo", "|DRR error| (dB)")]
-    models = [("motionAware", "Motion-aware"), ("omni", "Omni")]
-    fig, axes = plt.subplots(2, 2, figsize=(8.6, 5.6), sharex=True, sharey="row", constrained_layout=True)
-    rng = np.random.default_rng(0)
-    for row, (met, ylab) in enumerate(panels):
-        for col, (model, mname) in enumerate(models):
-            ax = axes[row, col]
-            for i, mov in enumerate(MOVEMENTS):
-                T = takes_of(data, mov)
-                for j, est in enumerate(("informed", "blind")):
-                    cond = f"{est}_{model}"
-                    x0 = i + (j - 0.5) * 0.34
-                    v = np.array([value(data, t, cond, met) for t in T])
-                    v = v[np.isfinite(v)]
-                    col_ = COLOURS[f"{est}_motionAware"]
-                    ax.scatter(x0 + rng.uniform(-0.06, 0.06, v.size), v, s=12, color=col_, alpha=0.4,
-                               linewidths=0, zorder=2)
-                    ax.plot([x0 - 0.13, x0 + 0.13], [v.mean()] * 2, color=col_, lw=2.4, zorder=3,
-                            label=est.capitalize() if (i == 0 and row == 0 and col == 0) else None)
-            ax.set_ylim(bottom=0)
-            ax.grid(axis="y", color=GRID, lw=0.8)
-            ax.set_axisbelow(True)
-            for side in ("top", "right"):
-                ax.spines[side].set_visible(False)
-            for side in ("left", "bottom"):
-                ax.spines[side].set_color(MUTED)
-            ax.tick_params(colors=MUTED, labelsize=8.5)
-            if row == 0:
-                ax.set_title(mname, loc="left", fontsize=10, color=INK)
-            if col == 0:
-                ax.set_ylabel(ylab, fontsize=9, color=MUTED)
-    for ax in axes[-1]:
-        ax.set_xticks(range(len(MOVEMENTS)),
-                      [f"{n}\n({len(takes_of(data, m))} takes)" for m, n in MOVEMENTS.items()])
-    axes[0, 0].legend(frameon=False, fontsize=8.5, loc="upper left", labelcolor=INK)
-    fig.suptitle("Movement and blind estimation (bar = mean, dots = takes; all five rooms)", x=0.01, ha="left",
-                 fontsize=11, color=INK)
-    fig.savefig(path, dpi=200)
+    """The cost of blind estimation for each model: per take, blind minus informed (the paired difference the
+    tests use), by movement; median and interquartile range over takes. Above zero, going blind cost
+    accuracy. Rows share a y-axis per metric, so the two models compare directly."""
+    panels = [("t20_T_mid", "|T20 error|, T_mid", "Blind minus informed (pp)"),
+              ("drr_paper", "|DRR error|", "Blind minus informed (dB)")]
+    models = (("motionAware", "Motion-aware"), ("omni", "Omnidirectional"))
+    fig, axes = plt.subplots(2, 2, figsize=(8.6, 6.4), sharey="col", constrained_layout=True)
+    for (row, (model, mname)), (col, (met, title, ylab)) in itertools.product(enumerate(models), enumerate(panels)):
+        ax = axes[row, col]
+        ax.axhline(0, color=MUTED, lw=1, zorder=1)
+        for i, mov in enumerate(MOVEMENTS):
+            d = np.array([value(data, t, f"blind_{model}", met) - value(data, t, f"informed_{model}", met)
+                          for t in takes_of(data, mov)])
+            q1, med, q3 = np.nanpercentile(d, [25, 50, 75])
+            ax.plot([i, i], [q1, q3], color=INK, lw=1.6, solid_capstyle="butt", zorder=2)
+            ax.plot([i - 0.07, i + 0.07], [q1, q1], color=INK, lw=1.2, zorder=2)
+            ax.plot([i - 0.07, i + 0.07], [q3, q3], color=INK, lw=1.2, zorder=2)
+            ax.scatter([i], [med], s=60, color=INK, edgecolor="white", linewidth=1.2, zorder=3)
+        ax.set_xticks(range(len(MOVEMENTS)), list(MOVEMENTS.values()))
+        ax.set_xlim(-0.5, len(MOVEMENTS) - 0.5)
+        ax.set_title(f"{mname}: {title}", loc="left", fontsize=10, color=INK)
+        ax.set_ylabel(ylab, fontsize=9, color=MUTED)
+        ax.grid(axis="y", color=GRID, lw=0.8)
+        ax.set_axisbelow(True)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            ax.spines[side].set_color(MUTED)
+        ax.tick_params(colors=MUTED, labelsize=8.5)
+        ax.tick_params(axis="x", colors=INK)
+    fig.suptitle("The cost of blind estimation", x=0.01, ha="left", fontsize=11, color=INK)
+    fig.text(0.01, -0.01, "Per take, blind minus informed; dot: median over takes, bar: interquartile range. Above "
+             "zero, blind estimation is worse.", fontsize=7.5, color=MUTED, va="top")
+    fig.savefig(path, dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 
