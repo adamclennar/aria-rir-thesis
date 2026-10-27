@@ -499,7 +499,7 @@
           "motion": "head",
           "optitrack_csv": "L_shape_head_moving_male_tracked.csv",
           "pose_source": "optitrack",
-          "note": "OptiTrack-pose twin of lshape_maleSpeech_headMove: same audio, placement and reference instant (both chosen from the SLAM pose), with the OptiTrack pose; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-3.55 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume). The OptiTrack link (optitrack_link) was fitted on these two head-moving takes, so the comparison here is partly in-sample",
+          "note": "OptiTrack-pose twin of lshape_maleSpeech_headMove: same audio, placement and reference instant (both chosen from the SLAM pose), with the OptiTrack pose; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-3.55 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume). The OptiTrack link (optitrack_link) was fitted on a separate calibration recording, so the comparison is out of sample",
           "source_span_s": [
             3.7,
             66.0
@@ -511,7 +511,7 @@
           "motion": "head",
           "optitrack_csv": "L_shape_head_moving_female_tracked.csv",
           "pose_source": "optitrack",
-          "note": "OptiTrack-pose twin of lshape_femaleSpeech_headMove: same audio, placement and reference instant (both chosen from the SLAM pose), with the OptiTrack pose; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-2.97 s and 65.69-66.0 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume). The OptiTrack link (optitrack_link) was fitted on these two head-moving takes, so the comparison here is partly in-sample",
+          "note": "OptiTrack-pose twin of lshape_femaleSpeech_headMove: same audio, placement and reference instant (both chosen from the SLAM pose), with the OptiTrack pose; trimmed (source_span_s) to the span OptiTrack covers completely, so the SLAM/OptiTrack comparison is pure SLAM vs pure OptiTrack on identical audio: OptiTrack has no data at 0-2.97 s and 65.69-66.0 s of the full take, where SLAM puts the wearer up to 3 m from the mark (walking onto it as the speech starts, outside the OptiTrack volume). The OptiTrack link (optitrack_link) was fitted on a separate calibration recording, so the comparison is out of sample",
           "source_span_s": [
             3.1,
             65.6
@@ -543,31 +543,30 @@
       "optitrack_link": {
         "R_rb_dev": [
           [
-            -0.111458,
-            0.749432,
-            0.652632
+            -0.098829,
+            0.738898,
+            0.66653
           ],
           [
-            -0.138848,
-            0.638539,
-            -0.756961
+            -0.126627,
+            0.655026,
+            -0.74492
           ],
           [
-            -0.984022,
-            -0.174986,
-            0.032887
+            -0.987015,
+            -0.15802,
+            0.028829
           ]
         ],
         "l_rb_m": [
-          0.0744,
-          -0.0815,
-          -0.0247
+          0.0799,
+          -0.0704,
+          0.0045
         ],
         "fitted_on": [
-          "L_shape_head_moving_male_tracked",
-          "L_shape_head_moving_female_tracked"
+          "L_shape_calibration_1"
         ],
-        "note": "hand-eye rotation (rigid body -> device) and lever arm (body origin -> device origin, body frame), mean of the two head-moving fits, which agree to 4.4 deg and 1.2 cm. Fixed constants: the build never refits them; only the clock offset is fitted per take.",
+        "note": "hand-eye rotation (rigid body -> device) and lever arm (body origin -> device origin, body frame), fitted on L_shape_calibration_1 (build/fit_optitrack_link.py; residual 1.0 cm rms, 1.5 deg rms). A recording made for the calibration, so every take the link is evaluated on is out of sample. Fixed constants: the build never refits them; only the clock offset is fitted per take.",
         "speaker_bodies": [
           "speaker_side",
           "speaker_top"

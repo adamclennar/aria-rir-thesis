@@ -11,8 +11,8 @@ clocks relate:
     p_world_device(t) = p_world_rb(t) + R_world_rb(t) @ l_rb   (lever arm)
 
 R_rb_dev and l_rb are physical constants of how the markers sit on the
-glasses. They are fitted against MPS on OTHER takes (the head-moving ones,
-which rotate the most) and only then applied to the take being built, so the
+glasses. They are fitted against MPS on a separate calibration recording
+(build/fit_optitrack_link.py) and only then applied to the take being built, so the
 OptiTrack pose of that take owes nothing to its own SLAM trajectory beyond the
 clock offset -- which can only come from a motion match, since the two
 systems share no clock. tau is fitted by joint_align on angular velocity
@@ -81,28 +81,40 @@ def fit_lever(opti_dev: PoseTrack, mps: Pose, R_rb_dev: np.ndarray) -> dict:
     p_mps = R_W (p_rb + R_rb l) + c. R_W from orientations (Procrustes of
     R_mps (R_rb R_rb_dev)^T), then l and c by linear least squares. Only
     samples with a real mocap sample within 20 ms are used.
+
+    Trimmed: after each fit, samples more than TRIM_M from it are dropped and
+    the fit is repeated (three passes). The Motive export can open with a
+    placeholder frame at the world origin before the body is first tracked;
+    on L_shape_calibration_1 its 3 samples (0.13 %) sit 3.5 m off and,
+    untrimmed, move the lever arm by 0.5 cm. Residuals are reported over the
+    samples kept.
     """
+    TRIM_M = 0.05
     lo, hi = max(opti_dev.t_s[0], mps.t_s[0]), min(opti_dev.t_s[-1], mps.t_s[-1])
     t = np.arange(lo, hi, 1 / 120.0)
     t = t[gap_mask(t, opti_dev.t_s)]
     O, M = opti_dev.interp_to(t), mps.sample(t)
-    A = np.einsum("nij,nkj->ik", M.R, np.einsum("nij,jk->nik", O.rotation, R_rb_dev))
-    U, _, Vt = np.linalg.svd(A)
-    R_W = U @ np.diag([1, 1, np.linalg.det(U @ Vt)]) @ Vt
-    # p_mps - R_W p_rb = R_W R_rb l + c   ->   [R_W R_rb | I] [l; c]
-    lhs = np.concatenate([np.einsum("ij,njk->nik", R_W, O.rotation), np.tile(np.eye(3), (len(t), 1, 1))], 2)
-    rhs = M.p - O.position @ R_W.T
-    x, *_ = np.linalg.lstsq(lhs.reshape(-1, 6), rhs.reshape(-1), rcond=None)
-    l, c = x[:3], x[3:]
-    pred = (O.position + np.einsum("nij,j->ni", O.rotation, l)) @ R_W.T + c
-    res = np.linalg.norm(pred - M.p, axis=1)
-    R_pred = np.einsum("ij,njk->nik", R_W, np.einsum("nij,jk->nik", O.rotation, R_rb_dev))
-    rot_err = Rotation.from_matrix(np.einsum("nji,njk->nik", R_pred, M.R)).magnitude()
-    return {"l_rb": l, "R_W": R_W, "c": c, "n": len(t),
+    keep = np.ones(len(t), bool)
+    for _ in range(3):
+        A = np.einsum("nij,nkj->ik", M.R[keep], np.einsum("nij,jk->nik", O.rotation[keep], R_rb_dev))
+        U, _, Vt = np.linalg.svd(A)
+        R_W = U @ np.diag([1, 1, np.linalg.det(U @ Vt)]) @ Vt
+        # p_mps - R_W p_rb = R_W R_rb l + c   ->   [R_W R_rb | I] [l; c]
+        lhs = np.concatenate([np.einsum("ij,njk->nik", R_W, O.rotation[keep]),
+                              np.tile(np.eye(3), (int(keep.sum()), 1, 1))], 2)
+        rhs = M.p[keep] - O.position[keep] @ R_W.T
+        x, *_ = np.linalg.lstsq(lhs.reshape(-1, 6), rhs.reshape(-1), rcond=None)
+        l, c = x[:3], x[3:]
+        res_all = np.linalg.norm((O.position + np.einsum("nij,j->ni", O.rotation, l)) @ R_W.T + c - M.p, axis=1)
+        keep = res_all <= TRIM_M
+    res = res_all[keep]
+    R_pred = np.einsum("ij,njk->nik", R_W, np.einsum("nij,jk->nik", O.rotation[keep], R_rb_dev))
+    rot_err = Rotation.from_matrix(np.einsum("nji,njk->nik", R_pred, M.R[keep])).magnitude()
+    return {"l_rb": l, "R_W": R_W, "c": c, "n": int(keep.sum()), "trimmed": float(1 - keep.mean()),
             "pos_rms_m": float(np.sqrt(np.mean(res ** 2))), "pos_p90_m": float(np.percentile(res, 90)),
             "rot_rms_deg": float(np.degrees(np.sqrt(np.mean(rot_err ** 2)))),
             "tilt_deg": float(np.degrees(np.arccos(np.clip(R_W[2, 2], -1, 1)))),
-            "coverage": float(len(t) / max(len(np.arange(lo, hi, 1 / 120.0)), 1))}
+            "coverage": float(keep.sum() / max(len(np.arange(lo, hi, 1 / 120.0)), 1))}
 
 
 def device_pose(opti_dev: PoseTrack, R_rb_dev: np.ndarray, l_rb: np.ndarray) -> Pose:
