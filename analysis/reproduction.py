@@ -19,7 +19,7 @@ results/reproduction/:
   per_room.csv         mean |T20 error| and |DRR error| per room
   fig7_t20.png         Fig. 7 layout: head-only movement (top), walking (bottom)
   fig8_rms.png         Fig. 8 layout, same panels, microphone-domain error
-  fig_drr.png          mean |DRR error| per method (paper window) beside the
+  fig_drr.png          mean |DRR error| per method (paper's window) beside the
                        paper's Table 2
   summary.md           all of the above on one page, with the takes used
 
@@ -159,7 +159,7 @@ def table2(data: dict) -> tuple[list, str]:
     write_csv(OUT / "table2_drr.csv", ["movement", "condition", "n_takes", "paper_mean_db", "paper_sd_db",
                                       "ours_paper_window_mean_db", "ours_paper_window_sd_db",
                                       "ours_repo_window_mean_db", "ours_repo_window_sd_db"], rows)
-    return rows, md_table(["Movement", "Method", "Paper (Table 2)", "Ours, paper window", "Ours, repo window", "Takes"], md)
+    return rows, md_table(["Movement", "Method", "Paper (Table 2)", "Ours, paper's window", "Ours, wide window", "Takes"], md)
 
 
 def per_band(data: dict, prefix: str, fname: str, unit: str, abs_prefix: str | None = None) -> tuple[dict, str]:
@@ -238,7 +238,7 @@ def figure(stats: dict, data: dict, ylabel: str, title: str, path: Path) -> None
 
 
 def figure_drr(data: dict, path: Path) -> None:
-    """Mean |DRR error| (paper window) beside the paper's Table 2, one pair of
+    """Mean |DRR error| (paper's window) beside the paper's Table 2, one pair of
     bars per method. Only the comparison the paper reports: the spread is in
     table2_drr.csv (sd) and per_room.csv. Colour marks the source (paper or
     this data); the method is the x-axis, so it needs no colour here.
@@ -261,7 +261,7 @@ def figure_drr(data: dict, path: Path) -> None:
                 ax.text(xi, vi + 0.1, f"{vi:.1f}", ha="center", va="bottom", fontsize=8.5, color=INK)
         top = max(top, *paper, *ours)
         ax.set_xticks(x, [METHODS[c] for c in PAPER_METHODS])
-        ax.set_title(f"{MOVEMENTS[mov].split(' (')[0]} ({len(T)} takes)", loc="left", fontsize=10, color=INK)
+        ax.set_title(MOVEMENTS[mov].split(' (')[0], loc="left", fontsize=10, color=INK)
         ax.grid(axis="y", color=GRID, lw=0.8)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
@@ -272,7 +272,7 @@ def figure_drr(data: dict, path: Path) -> None:
     axes[0].set_ylim(0, np.ceil(top + 1))
     axes[0].set_ylabel("Mean |DRR error| (dB)", fontsize=9, color=MUTED)
     axes[0].legend(frameon=False, fontsize=8.5, loc="upper left", labelcolor=INK)
-    fig.suptitle("DRR error, paper's direct-sound window (cf. paper Table 2)", x=0.01, ha="left",
+    fig.suptitle("Mean |DRR error| (cf. paper Table 2)", x=0.01, ha="left",
                  fontsize=11, color=INK)
     fig.savefig(path, dpi=200)
     plt.close(fig)
@@ -316,7 +316,7 @@ measured microphone's; |error| is averaged over the microphones.
 
 {rms_md}
 
-## Per room: mean |T20 error| / mean |DRR error| (paper window)
+## Per room: mean |T20 error| / mean |DRR error| (paper's window)
 
 {room_md}
 

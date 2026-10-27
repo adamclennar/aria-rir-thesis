@@ -30,7 +30,7 @@ function S = scoreRir(P, rir, expectSmp)
 %                  array's order-0 channel on a head, so a bias of a decibel
 %                  or two is expected; compare conditions, not absolutes.
 %   S.drrDbPaper, S.drrErrPaper  the same two under the paper's direct-sound
-%                  window. drrDb/drrErr are the repo window; drrWindows.m
+%                  window. drrDb/drrErr are the wide window; drrWindows.m
 %                  defines both and says when to use which.
 %   S.rmsMicErrDb  tonal-balance (octave-band RMS) error AT THE MICROPHONES,
 %                  numMics x numBands: the estimate decoded to each
