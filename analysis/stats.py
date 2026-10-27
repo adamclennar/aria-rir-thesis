@@ -4,8 +4,11 @@ Imported by the other analysis scripts, not run on its own.
 
 Primary T20 measure (README, "Scoring"): the mean |relative T20 error| in the
 500 Hz and 1 kHz octave bands, the bands of ISO 3382-1's mid-frequency
-reverberation time (T_mid). 500 Hz-2 kHz and all seven bands are reported
-beside it as sensitivity checks. The comparison with the paper (RQ1,
+reverberation time (T_mid). Beside it, the band groups that carry other
+perceptual attributes: low (125 + 250 Hz, warmth, as in Beranek's bass ratio)
+and high (2 + 4 kHz, brilliance); 8 kHz on its own; and all seven bands, the
+paper's measure. A conclusion drawn on T_mid holds for T_mid: where the groups
+disagree, the analyses report it. The comparison with the paper (RQ1,
 reproduction.py) uses all seven bands, as the paper does.
 
 Every comparison is PAIRED: the same take (or room and voice) under two
@@ -25,8 +28,10 @@ from scipy import stats as sps
 BANDS = (125, 250, 500, 1000, 2000, 4000, 8000)
 BAND_SETS = {
     "T_mid": (500, 1000),                 # primary: ISO 3382-1 mid-frequency bands
-    "500-2k": (500, 1000, 2000),
-    "all": BANDS,
+    "low": (125, 250),                    # warmth (Beranek's bass ratio)
+    "high": (2000, 4000),                 # brilliance
+    "8k": (8000,),
+    "all": BANDS,                         # the paper's measure
 }
 PRIMARY = "T_mid"
 SEED = 1
