@@ -57,10 +57,11 @@ subfolders, which `ensurePaths` (each entry point calls it first) puts on the pa
 | `runTake.m`, `runAll.m` | the paper's four conditions (informed/blind x motion-aware/omni) on one take / all takes (`run.py baseline`) |
 | `rescore.m` | re-scores saved RIRs into `results/pipeline/summary.csv` (`run.py rescore`) |
 | `buildArrayReference.m`, `buildSweepReference.m` | array-side references in the CH domain |
-| `summariseBlockSweep.m` | block-length sweep (`run.py blocksweep`): each walking and static take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
+| `summariseBlockSweep.m` | block-length sweep (`run.py blocksweep`): each static, head-only and walking take at 0.5x, 1.5x and 2x the rule block, beside the baseline's 1x, re-scored into `results/blocksweep/blocksweep.csv` |
 | `frontEndAnchors.m` | RQ2 (`run.py anchors`): the RLS against a ladder of pseudo-references, from the published blind front end to a perfect one: MUSIC steering; steering held at the protocol bearing, with and without WPE; the perfect front end; and the informed source at both levels -> `results/frontend/` |
 | `evalDereverb.m`, `exportInputs.m` | harness for a candidate dereverberator: its inputs exported as WAVs (optionally with the received source, for oracle candidates), its output scored with the beamformer steered at the protocol bearing |
 | `sourceBearing.m` | RQ3 (`run.py geometry`): the glasses' own source bearing at the reference pose, with the reference values the geometric DRR needs |
+| `refT20Repeatability.m` | each band's reference T20 on every omni sweep separately, with the scoring's estimator -> `results/reliability/` |
 | `ensurePaths.m`, `repoRoot.m` | put the pinned dependencies and the subfolders on the path (and check nothing shadows them); the repository root |
 
 | helpers | role |
@@ -96,13 +97,14 @@ Reads only the result CSVs, so it needs Python with numpy and matplotlib, not MA
 | file | role |
 |---|---|
 | `reproduction.py` | RQ1: the paper's Table 2 (DRR, both windows), Fig. 7 (T20 per band) and Fig. 8 (RMS per band) per movement type, plus per-room errors -> `results/reproduction/` |
-| `stats.py` | shared by the scripts below: the primary T20 measure and its sensitivity band sets, and the paired tests (bootstrap CI of the median, exact sign and Wilcoxon) |
-| `pose.py` | RQ1: the glasses' SLAM pose against OptiTrack on the L-shape walking and head-only takes: the yaw and translation the motion-aware model uses, the build's tracking agreement, and the `*Opti` twins' T20 and DRR errors -> `results/pose/summary.md` |
+| `stats.py` | shared by the scripts below: the primary T20 measure (T_mid), the band groups beside it (low, high, 8 kHz, all), and the paired tests (bootstrap CI of the median, exact sign and Wilcoxon) |
+| `pose.py` | RQ1: the glasses' SLAM pose against OptiTrack on the L-shape walking and head-only takes: the yaw and translation the motion-aware model uses, the build's tracking agreement, and the `*Opti` twins' T20 and DRR errors, headed by one row per movement -> `results/pose/summary.md` |
+| `reliability.py` | how reliable each band's T20 is: the reference's sweep-to-sweep repeatability, the Schroeder frequency, the informed and blind errors per band and per voice, and the speech's energy per band -> `results/reliability/summary.md` |
 | `decomposition.py` | RQ2: what movement costs and what blind estimation costs on top, per metric, paired -> `results/decomposition/` |
-| `blocksweep.py` | RQ2: T20 error against block length, walking and static takes, optionally beside the reference study's own sweep -> `results/blocksweep/` |
-| `frontend.py` | RQ2: the front-end anchors, against the omni reference and as deviation from the informed estimate of the same take -> `results/frontend/` |
-| `dereverb.py` | RQ2/RQ3: the oracle candidates on the front-end ladder, and the share of the headroom each recovers -> `results/dereverb/summary.md` |
-| `geometric_drr.py` | RQ3: DRR from the diffuse-field model (SLAM volume, blind T20, vision distance; one constant fitted leave-one-room-out on the four rooms recorded first, frozen for the held-out room) against the acoustic DRR, plus the geometry's own error budget -> `results/geometry/drr_summary.md` |
+| `blocksweep.py` | RQ2: T20 error against block length, static, head-only and walking takes, per band group and octave band, optionally beside the same sweep run on the reference study's published recordings; RQ1: the range of assumed absorption for which the block length the glasses would set from their room box (Sabine) stays inside the sweep's tolerance, beside published dwelling values -> `results/blocksweep/` |
+| `frontend.py` | RQ2: the front-end anchors, against the omni reference and as deviation from the informed estimate of the same take; the figure is the ladder for both models, not walking vs walking, median and interquartile range -> `results/frontend/` |
+| `dereverb.py` | RQ2/RQ3: the oracle candidates on the front-end ladder, and the share of the headroom each recovers, headed by the four informative ones -> `results/dereverb/summary.md` |
+| `geometric_drr.py` | RQ3: DRR from the diffuse-field model (SLAM volume, blind T20, vision distance; one constant fitted leave-one-room-out on the four rooms recorded first, frozen for the held-out room) against the acoustic DRR, plus the geometry's own error budget -> `results/geometry/` (`drr_summary.md`, `fig_drr.png`) |
 
 **Configuration**: `config/rooms.json` defines the dataset -- every room, every
 take, the files each uses, and every exclusion with its reason.
@@ -168,9 +170,11 @@ matlab -batch "cd pipeline; buildArrayReference({'office','corridor','reverb','m
 matlab -batch "cd pipeline; buildSweepReference('lshape','lshape_maleSpeech_static')"
 python run.py baseline                           # stage 2: the paper's four conditions on every take
 python run.py rescore                            # every saved result -> results/pipeline/summary.csv
-python run.py blocksweep                         # walking and static takes at 0.5x / 1.5x / 2x the rule block
+python run.py blocksweep                         # every take at 0.5x / 1.5x / 2x the rule block
 python analysis/reproduction.py                  # RQ1 tables and figures -> results/reproduction/
 python analysis/pose.py                          # RQ1 SLAM vs OptiTrack pose -> results/pose/
+matlab -batch "cd pipeline; refT20Repeatability"      # reference T20 per omni sweep -> results/reliability/
+python analysis/reliability.py                   # T20 reliability per band -> results/reliability/
 python run.py anchors                            # RQ2 front-end anchors, takes with a protocol bearing
 python run.py oracle                             # RQ2/RQ3 oracle candidates (exportInputs, dereverb/oracle.py, evalDereverb)
 python analysis/decomposition.py                 # RQ2 movement x estimation -> results/decomposition/
@@ -196,15 +200,19 @@ and tonal balance at the microphones:
   seven bands, as the paper does. Every later analysis (where accuracy is
   lost, glasses-only operation, scene geometry) has one primary T20 measure:
   the mean |relative error| in the 500 Hz and 1 kHz bands, the bands of
-  ISO 3382-1's mid-frequency reverberation time (T_mid). 500 Hz-2 kHz and
-  all seven bands are reported beside it as sensitivity checks. The extreme
-  bands carry large errors in every condition, which dilutes the differences
-  between conditions.
+  ISO 3382-1's mid-frequency reverberation time (T_mid). Beside it, the band
+  groups that carry other perceptual attributes: low (125 + 250 Hz, warmth, as
+  in Beranek's bass ratio) and high (2 + 4 kHz, brilliance), 8 kHz on its own,
+  and all seven bands. A conclusion on T_mid is stated as one; where the groups
+  disagree, the analyses say so. The extreme bands are not unreliable as such:
+  the reference T20 repeats within 5 % across the omni sweeps in every band,
+  and the informed estimates err 4-15 % in every band. The large errors at the
+  band edges are the blind estimates' (`analysis/reliability.py`), so they are
+  a finding, not noise.
 * **DRR**, scored under two direct-sound windows (`drrWindows.m`): the
-  paper's (peak -0.5 to +1 ms; `drrDbPaper`, `drrErrPaper`) and a wider one
-  (-1 to +2.5 ms; `drrDb`, `drrErr`). Compare with the paper using its window;
-  `drrWindows.m` explains why the wider one is used for this data's own
-  comparisons.
+  paper's (peak -0.5 to +1 ms; `drrDbPaper`, `drrErrPaper`) and a wide one
+  (-1 to +2.5 ms; `drrDb`, `drrErr`). The thesis reports the paper's window
+  only, and the figures use it; the summaries keep both.
 * **Tonal balance (octave-band RMS)**: the level of the reverberant part per
   band (the quantity the paper's BRIR synthesis matches), scored **at the
   microphones**: each estimate is decoded to what the 7 microphones should
