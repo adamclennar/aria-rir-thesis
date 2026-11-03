@@ -12,6 +12,9 @@
     python run.py geometry   [selection]   the glasses' source bearing (sourceBearing), then the room box and
                                            vision distance from the SLAM point cloud (geometry/scene.py).
                                            Stored in results/geometry/
+    python run.py movingref  [selection]   whether a reference carrying the array's motion has it counted twice
+                                           (movingReference): needs anchors and geometry. Stored in
+                                           results/movingref/
     python run.py jobs FILE                any job list (lines: <label> <MATLAB command>)
 
   selection: --rooms R [R ...]  --movement static headMove fullMove  --takes T [T ...]
@@ -26,6 +29,7 @@ takes it needs:
   anchors     takes with a protocol bearing: an in-take sweep, or faces_source_at_reference
   oracle      the same takes, where the wearer does not walk
   geometry    every take of the composite rooms
+  movingref   the walking takes with a protocol bearing (--movement selects others instead)
 
 A job whose output already exists is skipped, so every command resumes. MATLAB jobs run a few at a
 time, one MATLAB process each (a crash costs that job only, memory is freed between jobs, and
@@ -57,6 +61,9 @@ MOVEMENTS = ("static", "headMove", "fullMove")
 ANCHORS = ("published", "wpe_oracle_steering", "nowpe_oracle_steering", "perfect_frontend",
            "informed_lvl_matched", "informed")
 ORACLES = ("oracle_comb", "oracle_floor", "oracle_early_sub", "oracle_early", "oracle_fixed", "oracle_perfect_resid")
+MOVINGREF = ("received_delay_only", "received_gain_only", "perfect_frontend_demoved", "published_demoved",
+             "perfect_frontend_notrans", "informed_lvl_matched_notrans", "published_notrans")
+MOVREF = ROOT / "results" / "movingref"
 PASSTHROUGH = ("office_maleSpeech_static", "meeting_femaleSpeech_headMove")   # the harness check
 _lock = threading.Lock()
 
@@ -218,6 +225,12 @@ def geometry(a) -> bool:
     return True
 
 
+def movingref(a) -> bool:
+    takes = select(a, lambda d: has_bearing(d) and (a.movement or d["movement"] == "fullMove"))
+    todo = [t for t in takes if not all((MOVREF / t / f"{c}.mat").exists() for c in MOVINGREF)]
+    return run_jobs([(t, f"movingReference({q(t)})") for t in todo], "movingref", a)
+
+
 def jobfile(a) -> bool:
     lines = [ln.split(maxsplit=1) for ln in a.file.read_text().splitlines() if ln.strip() and not ln.startswith("#")]
     return run_jobs([(l, c) for l, c in lines], a.file.stem, a)
@@ -226,13 +239,13 @@ def jobfile(a) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="stage", required=True)
-    stages = {"baseline": baseline, "rescore": rescore, "blocksweep": blocksweep, "anchors": anchors,
-              "oracle": oracle, "geometry": geometry, "jobs": jobfile}
+    stages = {"baseline": baseline, "rescore": rescore, "blocksweep": blocksweep,
+              "anchors": anchors, "oracle": oracle, "geometry": geometry, "movingref": movingref, "jobs": jobfile}
     for name in stages:
         p = sub.add_parser(name)
         p.add_argument("--jobs", type=int, default=3)
         p.add_argument("--dry-run", action="store_true")
-        if name in ("baseline", "blocksweep", "anchors", "oracle", "geometry"):
+        if name in ("baseline", "blocksweep", "anchors", "oracle", "geometry", "movingref"):
             p.add_argument("--rooms", nargs="+")
             p.add_argument("--movement", nargs="+", choices=MOVEMENTS)
             p.add_argument("--takes", nargs="+")

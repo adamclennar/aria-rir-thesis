@@ -1,4 +1,4 @@
-function b = receivedDirect(P, s, rRef)
+function b = receivedDirect(P, s, rRef, opts)
 % The direct sound of s AS RECEIVED at the moving array: delayed by the
 % change in source-to-array range and scaled by 1/r, relative to the range at
 % `rRef` (default: the reference pose, where build_take placed sourceSig).
@@ -12,14 +12,20 @@ function b = receivedDirect(P, s, rRef)
 %
 % Needs P.srcRangeM (addOracleDoa), which is measured from the acoustic
 % centre (acousticCentre), not the tracked CPF.
+%
+% opts.parts  'both' (the received direct sound), or only the range 'delay'
+%             or only the 1/r 'gain': movingReference.m separates the two.
 arguments
     P struct
     s (:,1) double
     rRef (1,1) double = P.distanceM
+    opts.parts (1,:) char {mustBeMember(opts.parts,{'both','delay','gain'})} = 'both'
 end
 c = 343;
 n = numel(s);
 r = P.srcRangeM(1:n);
 dly = (r - rRef)/c*P.fs;                     % samples later than at the reference pose
-b = interp1((1:n)', s, (1:n)' - dly, 'spline', 0) .* (rRef./r);
+b = s;
+if ~strcmp(opts.parts, 'gain'); b = interp1((1:n)', s, (1:n)' - dly, 'spline', 0); end
+if ~strcmp(opts.parts, 'delay'); b = b .* (rRef./r); end
 end

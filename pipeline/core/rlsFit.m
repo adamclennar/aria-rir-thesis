@@ -10,7 +10,7 @@ arguments
     P struct
     pref (:,1) double
     tag (1,:) char = ''
-    model (1,:) char {mustBeMember(model,{'motionAware','omni'})} = 'motionAware'
+    model (1,:) char {mustBeMember(model,{'motionAware','omni','motionAwareNoTrans'})} = 'motionAware'
 end
 mn = min(size(P.sigsPre,1), numel(pref));
 p = pref(1:mn); p(~isfinite(p)) = 0;
@@ -33,6 +33,13 @@ switch model
     case 'motionAware'
         ord = P.chOrder; Dm = P.D;
         rot = P.rotYawPre(s0:mn); tAzi = P.transAziPre(s0:mn); tRad = P.transRadPre(s0:mn);
+    case 'motionAwareNoTrans'
+        % Not a published condition: the motion-aware model with its translation switched off (the
+        % rotation kept), for movingReference.m's test of whether a reference that already carries the
+        % array's motion has it counted a second time by the model.
+        ord = P.chOrder; Dm = P.D;
+        z = zeros(mn-s0+1,1);
+        rot = P.rotYawPre(s0:mn); tAzi = z; tRad = z;
     case 'omni'
         % estimateRirs.m's blind-omni condition: zeroth order, the omni slice of
         % the array matrix, and zeroed motion. The omni model deliberately
