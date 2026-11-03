@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RQ2, block length: T20 error against the RLS block length, informed and blind.
+"""RQ1, block length: T20 error against the RLS block length, informed and blind.
 
     python analysis/blocksweep.py [--paper PATH]
 
@@ -23,6 +23,8 @@ fixed mean absorption coefficient alpha, gives a block length with no acoustic m
 summary lists, per room, the alpha that keep that block inside the range the sweep tolerates, beside
 the published values for dwellings (Hoshi et al. 2021, Appl. Sci. 11, 2709: living-dining and child rooms
 below 0.17, bedrooms 0.18-0.23, 500 Hz-4 kHz). No alpha is chosen: the point is the range.
+With the runs of `run.py sabine` in the CSV, it also scores the pipeline at those blocks: for each alpha interval
+inside the range, every take at its room's Sabine block against the same take at the rule block (sabine_runs).
 """
 from __future__ import annotations
 
@@ -67,6 +69,64 @@ def err(D: dict, take: str, f: float, cond: str, bands) -> float:
     return S.t20_err(r, bands, "err_{}") if r else math.nan
 
 
+def drr_err(D: dict, take: str, f: float, cond: str) -> float:
+    """|DRR error| (dB) under the paper's direct-sound window, the one the thesis reports."""
+    r = D.get((take, f, cond))
+    return abs(S.num(r["drrErrPaper"])) if r else math.nan
+
+
+def tonal_err(D: dict, take: str, f: float, cond: str) -> float:
+    """Tonal-balance error (dB): |octave-band RMS level error|, mean over microphones and bands."""
+    r = D.get((take, f, cond))
+    return S.num(r["rmsErrMeanDb"]) if r else math.nan
+
+
+def sweep_table(D: dict, title: str, fn, note: str) -> str:
+    """One scalar error across the sweep, per movement and condition: the mean over the takes with every block
+    length, and the paired change from 1x (median [95% CI], takes on which the error fell / n, Wilcoxon p)."""
+    lines = [f"## {title} across the sweep\n",
+             f"{note}: mean over takes; change from 1x (dB, positive = worse): median [95% CI] (takes on which the "
+             "error fell / n, Wilcoxon p).\n"]
+    for cond, cname in CONDITIONS.items():
+        lines.append(f"**{cname}**\n")
+        lines.append("| Movement | " + " | ".join(f"{f}x" for f in FACTORS) + " |\n|---|" + "---|" * len(FACTORS))
+        for key, name in (("_static", "Static"), ("_headMove", "Head-only"), ("_fullMove", "Walking")):
+            Dm = {k: v for k, v in D.items() if key in k[0]}
+            takes = complete(Dm, cond)
+            cells = []
+            for f in FACTORS:
+                cell = f"{np.nanmean([fn(Dm, t, f, cond) for t in takes]):.2f}"
+                if f != 1.0:
+                    r = S.paired([fn(Dm, t, f, cond) - fn(Dm, t, 1.0, cond) for t in takes])
+                    cell += (f" ({r['median']:+.2f} [{r['lo']:+.2f}, {r['hi']:+.2f}], {r['down']}/{r['n']}, "
+                             f"p={r['p_wilcoxon']:.2f})")
+                cells.append(cell)
+            lines.append(f"| {name} ({len(takes)} takes) | " + " | ".join(cells) + " |")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def tonal_bias_table(D: dict, cond: str = "blind_motionAware") -> str:
+    """Whether block length tilts the spectrum: the paired change from 1x in the SIGNED octave-band RMS level
+    error (estimate minus reference, mean over microphones), per band and movement. A |error| that stays flat can
+    hide a tilt that moves bands in opposite directions, so the sign is tested here."""
+    lines = [f"**{CONDITIONS[cond]}**, signed tonal error per band: change from 1x (dB, positive = the estimate gains "
+             "level in that band relative to the reference): median [95% CI], * Wilcoxon p < 0.05\n",
+             "| Movement | Factor | " + " | ".join(f"{b} Hz" for b in S.BANDS) + " |\n|---|---|" + "---|" * len(S.BANDS)]
+    for key, name in (("_static", "Static"), ("_headMove", "Head-only"), ("_fullMove", "Walking")):
+        Dm = {k: v for k, v in D.items() if key in k[0]}
+        takes = complete(Dm, cond)
+        for f in (0.5, 1.5, 2.0):
+            cells = []
+            for b in S.BANDS:
+                r = S.paired([S.num(Dm[(t, f, cond)][f"rmsErr_{b}"]) - S.num(Dm[(t, 1.0, cond)][f"rmsErr_{b}"])
+                              for t in takes])
+                cells.append(f"{r['median']:+.2f} [{r['lo']:+.2f}, {r['hi']:+.2f}]"
+                             + ("*" if r["p_wilcoxon"] < 0.05 else ""))
+            lines.append(f"| {name} ({len(takes)}) | {f}x | " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
 def complete(D: dict, cond: str) -> list[str]:
     """Takes that have every block length of the sweep (FACTORS) run for this
     condition, so each curve compares the same takes (a sweep still running has
@@ -105,6 +165,36 @@ def table(D: dict, name: str) -> tuple[str, dict]:
     return "\n".join(lines), curves
 
 
+def appendix_tex(D: dict, cond: str = "blind_motionAware") -> str:
+    """The appendix table for one condition (blind MA: both tolerances are defined on it): the paired change
+    in |T20 error| from 1x at 0.5, 1.5 and 2x, per octave band and movement, with the takes on which the error
+    fell and * for Wilcoxon p < 0.05. Returns the LaTeX; also written to appendix_per_band_<cond>.tex."""
+    rows = []
+    for key, name in (("_static", "Static"), ("_headMove", "Head-only"), ("_fullMove", "Walking")):
+        Dm = {k: v for k, v in D.items() if key in k[0]}
+        takes = complete(Dm, cond)
+        rows.append(rf"\multicolumn{{4}}{{@{{}}l}}{{\emph{{{name}, {len(takes)} takes}}}} \\")
+        for b in S.BANDS:
+            cells = []
+            for f in (0.5, 1.5, 2.0):
+                r = S.paired([err(Dm, t, f, cond, (b,)) - err(Dm, t, 1.0, cond, (b,)) for t in takes])
+                cells.append(f"${r['median']:+.1f}$ ({r['down']}/{r['n']})" + ("$^{*}$" if r["p_wilcoxon"] < 0.05 else ""))
+            rows.append(f"{b if b < 1000 else f'{b // 1000}k'} & " + " & ".join(cells) + r" \\")
+        if name != "Walking":
+            rows.append(r"\midrule")
+    tex = "\n".join([
+        r"\begin{table}[H]", r"\centering", r"\small",
+        rf"\caption{{{CONDITIONS[cond].replace(' (MA)', ' MA')}: change in $|T_{{20}}$ error$|$ from the rule block "
+        r"(1$\times$), per octave band and movement. Median paired change (pp; positive = worse), with the number of "
+        r"takes on which the error fell in brackets. $^{*}$ Wilcoxon $p < 0.05$.}",
+        rf"\label{{tab:blocksweep-bands}}",
+        r"\begin{tabular}{@{}lrrr@{}}", r"\toprule",
+        r"Band (Hz) & 0.5$\times$ & 1.5$\times$ & 2$\times$ \\", r"\midrule", *rows,
+        r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
+    (OUT / f"appendix_per_band_{cond}.tex").write_text(tex)
+    return tex
+
+
 def figure(panels: list[tuple[str, dict]], path: Path) -> None:
     fig, axes = plt.subplots(1, len(panels), figsize=(3.6*len(panels) + 0.6, 3.3), sharey=True,
                              constrained_layout=True)
@@ -131,6 +221,11 @@ def figure(panels: list[tuple[str, dict]], path: Path) -> None:
     plt.close(fig)
 
 
+def rule_ms(room: str) -> float:
+    return float(sio.loadmat(ROOT / "data" / "rooms" / f"{room}_reference.mat",
+                             variable_names=["blockLenMsSuggested"], squeeze_me=True)["blockLenMsSuggested"])
+
+
 def sabine_blocks() -> tuple[np.ndarray, dict]:
     """alpha, and per room the block length / rule block the glasses would choose: Sabine's T from
     the SLAM room box (median V and S over the room's takes), then the rule (the smallest 500 ms
@@ -141,10 +236,79 @@ def sabine_blocks() -> tuple[np.ndarray, dict]:
     for room in GEO_ROOMS:
         rs = [r for r in scene if r["take"].startswith(room + "_")]
         vs = np.median([float(r["V_m3"]) for r in rs]) / np.median([float(r["S_m2"]) for r in rs])
-        rule = float(sio.loadmat(ROOT / "data" / "rooms" / f"{room}_reference.mat",
-                                 variable_names=["blockLenMsSuggested"], squeeze_me=True)["blockLenMsSuggested"])
-        out[room] = np.array([500 * math.ceil(round(2 * 0.161 * vs / a * 1000 / 500, 9)) for a in alpha]) / rule
+        out[room] = np.array([500 * math.ceil(round(2 * 0.161 * vs / a * 1000 / 500, 9)) for a in alpha]) / rule_ms(room)
     return alpha, out
+
+
+def sabine_runs(D: dict, alpha: np.ndarray, ratios: dict) -> str:
+    """The pipeline run at the glasses' own block (run.py sabine): for each alpha interval inside the range
+    that keeps all five rooms within 0.5-2x the rule block, every take at its room's Sabine block against
+    the same take at the rule block. The paired change is over the takes whose block differs (the rest are
+    unchanged by construction); the mean error is over all takes, so it is the cost of the whole choice."""
+    ok = np.all([(r >= 0.5 - 1e-9) & (r <= max(TOLERANCE.values()) + 1e-9) for r in ratios.values()], axis=0)
+    rules = {room: rule_ms(room) for room in GEO_ROOMS}
+    groups = []                                    # (alpha lo, alpha hi, {room: factor}, {room: block ms})
+    for a, i in zip(alpha[ok], np.flatnonzero(ok)):
+        f = {room: round(float(ratios[room][i]), 2) for room in GEO_ROOMS}   # the CSV's key (load)
+        if groups and groups[-1][2] == f and round(a - groups[-1][1], 3) <= 0.001:
+            groups[-1][1] = a
+        else:
+            groups.append([a, a, f, {room: round(float(ratios[room][i]) * rules[room]) for room in GEO_ROOMS}])
+    takes = sorted(t for t in {k[0] for k in D} if t.split("_")[0] in GEO_ROOMS)
+
+    def published(lo, hi):
+        marks = (["living-dining max"] if lo - 1e-9 <= LIVING_MAX <= hi + 1e-9 else []) + \
+                (["bedrooms"] if lo <= BEDROOMS[1] + 1e-9 and hi >= BEDROOMS[0] - 1e-9 else [])
+        return f" ({', '.join(marks)})" if marks else ""
+
+    def cell(r, ci=False, dp=1):
+        if not r:
+            return "--"
+        return (f"{r['median']:+.{dp}f}" + (f" [{r['lo']:+.{dp}f}, {r['hi']:+.{dp}f}]" if ci else "")
+                + f" ({r['down']}/{r['n']}, p={r['p_wilcoxon']:.2f})")
+
+    lines = ["## The pipeline at the glasses' own block\n",
+             f"`run.py sabine`: every take at its room's Sabine block (above) for each alpha that keeps all five rooms "
+             f"within 0.5-2x the rule block ({alpha[ok].min():.3f}-{alpha[ok].max():.3f}), against the same take at "
+             f"the rule block. Blocks in s (office / corridor / reverb / meeting / smallmeeting; rule "
+             + " / ".join(f"{rules[r] / 1000:g}" for r in GEO_ROOMS) + "). Mean |T20 error| over all "
+             f"{len(takes)} takes at the Sabine and the rule blocks; change (pp, positive = worse) on the takes whose "
+             "block differs: median ([95% CI, all movements only] takes on which the error fell / takes changed, Wilcoxon p). |DRR error| under the paper's direct-sound window, in dB.\n"]
+    metrics = (("T_mid", lambda t, f, c: err(D, t, f, c, S.BAND_SETS["T_mid"]), "{:.1f} %", 1),
+               ("|DRR error| (dB, paper's window)", lambda t, f, c: drr_err(D, t, f, c), "{:.2f} dB", 2),
+               ("tonal-balance error (dB)", lambda t, f, c: tonal_err(D, t, f, c), "{:.2f} dB", 2))
+    for mname, fn, fmt, dp in metrics:
+        for cond in ("blind_motionAware", "blind_omni"):
+            missing = [(t, f) for t in takes for g in groups for f in [g[2][t.split("_")[0]]] if (t, f, cond) not in D]
+            lines.append(f"**{CONDITIONS[cond]}**, {mname}"
+                         + (f" ({len(missing)} take-blocks missing)" if missing else "") + "\n")
+            lines.append("| alpha | Blocks (s) | Mean at Sabine / rule | Change | Static | Head-only | Walking |\n"
+                         "|---|---|---|---|---|---|---|")
+            for lo, hi, f, ms in groups:
+                fac = {t: f[t.split("_")[0]] for t in takes}
+                sab = np.nanmean([fn(t, fac[t], cond) for t in takes])
+                rule = np.nanmean([fn(t, 1.0, cond) for t in takes])
+                row = [f"{lo:.3f}-{hi:.3f}{published(lo, hi)}",
+                       " / ".join(f"{ms[r] / 1000:g}" for r in GEO_ROOMS),
+                       fmt.format(sab).split()[0] + " / " + fmt.format(rule)]
+                for key in ("", "_static", "_headMove", "_fullMove"):
+                    ch = [t for t in takes if key in t and fac[t] != 1.0]
+                    row.append(cell(S.paired([fn(t, fac[t], cond) - fn(t, 1.0, cond) for t in ch]), ci=not key, dp=dp))
+                lines.append("| " + " | ".join(row) + " |")
+            lines.append("")
+    cond = "blind_motionAware"
+    lines.append(f"**{CONDITIONS[cond]}**, per octave band: change on the takes whose block differs, all movements "
+                 "(median pp, takes on which the error fell / takes changed; * Wilcoxon p < 0.05)\n")
+    lines.append("| alpha | " + " | ".join(f"{b} Hz" for b in S.BANDS) + " |\n|---|" + "---|" * len(S.BANDS))
+    for lo, hi, f, _ in groups:
+        ch = [t for t in takes if f[t.split("_")[0]] != 1.0]
+        cells = []
+        for b in S.BANDS:
+            r = S.paired([err(D, t, f[t.split("_")[0]], cond, (b,)) - err(D, t, 1.0, cond, (b,)) for t in ch])
+            cells.append(f"{r['median']:+.1f} ({r['down']}/{r['n']}){'*' if r['p_wilcoxon'] < 0.05 else ''}"
+                         if r else "--")
+        lines.append(f"| {lo:.3f}-{hi:.3f}{published(lo, hi)} | " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
 
 
 def admissible(alpha: np.ndarray, r: np.ndarray, hi: float) -> str:
@@ -179,7 +343,7 @@ def main() -> int:
     ap.add_argument("--paper", type=Path, help="the reference study's blocksweep_paper.csv")
     a = ap.parse_args()
     D = load(ARIA, "blockFactor")
-    md = ["# RQ2: block length\n", "Generated by `analysis/blocksweep.py`. Rule block = the smallest 500 ms multiple "
+    md = ["# RQ1: block length\n", "Generated by `analysis/blocksweep.py`. Rule block = the smallest 500 ms multiple "
           ">= 2 x the longest octave-band T20 of the reference.\n"]
     panels = []
     for key, name in (("_fullMove", "walking"), ("_headMove", "head-only"), ("_static", "static")):
@@ -195,8 +359,14 @@ def main() -> int:
         md.append(md_p)
         panels.append((f"Reference study's recordings ({len(complete(Dp, 'informed_motionAware'))} takes)", cur_p))
     figure(panels, OUT / "fig_blocksweep.png")
+    appendix_tex(D)
+    md.append(sweep_table(D, "DRR", drr_err, "|DRR error| (dB) under the paper's direct-sound window"))
+    md.append(sweep_table(D, "Tonal balance", tonal_err, "Tonal-balance error (dB): |octave-band RMS level error|, "
+                          "mean over microphones and bands"))
+    md.append(tonal_bias_table(D))
     alpha, ratios = sabine_blocks()
     md.append(md_geometry(alpha, ratios))
+    md.append(sabine_runs(D, alpha, ratios))
     txt = "\n".join(md)
     (OUT / "summary.md").write_text(txt)
     print(txt)

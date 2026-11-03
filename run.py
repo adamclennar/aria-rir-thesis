@@ -6,6 +6,10 @@
     python run.py blocksweep [selection] [--factors 0.5 1.5 2]
                                            run the runTake script at multiples of each room's rule block length, then
                                            summariseBlockSweep stored in results/blocksweep/blocksweep.csv
+    python run.py sabine     [selection]   the same runs at every block the glasses' own rule (Sabine's T from the
+                                           SLAM room box, analysis/blocksweep.py) gives inside the five rooms'
+                                           admissible range of absorption that the sweep did not run, then the
+                                           same summary
     python run.py anchors    [selection]   the front-end anchors stored in results/frontend/
     python run.py oracle     [selection]   the oracle front-end candidates: exportInputs, dereverb/oracle.py,
                                            evalDereverb. Stored in results/dereverb/
@@ -26,6 +30,7 @@ and only for baseline and rescore: the room exists for that comparison. Each sta
 takes it needs:
   baseline    every take
   blocksweep  every take of the composite rooms (static, head-only and walking)
+  sabine      the same takes
   anchors     takes with a protocol bearing: an in-take sweep, or faces_source_at_reference
   oracle      the same takes, where the wearer does not walk
   geometry    every take of the composite rooms
@@ -171,6 +176,14 @@ def rescore(a) -> bool:
     return run_jobs([("rescore", "rescore()")], "rescore", a)
 
 
+SUMMARISE_SWEEP = ("summariseBlockSweep(unique(regexprep({dir(fullfile('..','results','pipeline','*_blk*.mat')).name}, "
+                   "'_blk\\d+\\.mat$', '')))")
+
+
+def block_job(t: str, b: int) -> tuple[str, str]:
+    return f"{t}_blk{b}", f"runTake({q(t)}, 'blockLenMs', {b}, 'tag', '_blk{b}')"
+
+
 def blocksweep(a) -> bool:
     takes = select(a, composite)
     jobs = []
@@ -179,11 +192,32 @@ def blocksweep(a) -> bool:
         for f in a.factors:
             b = int(round(rule * f))
             if not (PIPE / f"{t}_blk{b}.mat").exists():
-                jobs.append((f"{t}_blk{b}", f"runTake({q(t)}, 'blockLenMs', {b}, 'tag', '_blk{b}')"))
+                jobs.append(block_job(t, b))
     ok = run_jobs(jobs, "blocksweep", a)
-    summarise = ("summariseBlockSweep(unique(regexprep({dir(fullfile('..','results','pipeline','*_blk*.mat')).name}, "
-                 "'_blk\\d+\\.mat$', '')))")
-    return run_jobs([("summariseBlockSweep", summarise)], "blocksweep", a) and ok
+    return run_jobs([("summariseBlockSweep", SUMMARISE_SWEEP)], "blocksweep", a) and ok
+
+
+def sabine(a) -> bool:
+    """The glasses' own block, tested where it falls between the sweep's factors: every block Sabine's rule
+    gives from the SLAM room box (analysis/blocksweep.sabine_blocks) for a mean absorption inside the range
+    that keeps all five rooms within the T_mid tolerance, minus the blocks the sweep ran. The admissible range
+    otherwise assumes the error between the sweep's factors is no worse than at them."""
+    sys.path.insert(0, str(ROOT / "analysis"))
+    import numpy as np
+    import blocksweep as BS
+    alpha, ratios = BS.sabine_blocks()
+    ok = np.all([(r >= 0.5 - 1e-9) & (r <= max(BS.TOLERANCE.values()) + 1e-9) for r in ratios.values()], axis=0)
+    say(f"sabine: alpha {alpha[ok].min():.3f}-{alpha[ok].max():.3f} keeps every room inside the T_mid tolerance")
+    jobs = []
+    for t in select(a, composite):
+        room = t.split("_")[0]
+        rule = rule_block(room)
+        swept = {int(round(rule * f)) for f in BS.FACTORS}
+        for b in sorted({int(round(r * rule)) for r in ratios[room][ok]} - swept):
+            if not (PIPE / f"{t}_blk{b}.mat").exists():
+                jobs.append(block_job(t, b))
+    ok_runs = run_jobs(jobs, "sabine", a)
+    return run_jobs([("summariseBlockSweep", SUMMARISE_SWEEP)], "sabine", a) and ok_runs
 
 
 def anchors(a) -> bool:
@@ -239,13 +273,13 @@ def jobfile(a) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="stage", required=True)
-    stages = {"baseline": baseline, "rescore": rescore, "blocksweep": blocksweep,
+    stages = {"baseline": baseline, "rescore": rescore, "blocksweep": blocksweep, "sabine": sabine,
               "anchors": anchors, "oracle": oracle, "geometry": geometry, "movingref": movingref, "jobs": jobfile}
     for name in stages:
         p = sub.add_parser(name)
         p.add_argument("--jobs", type=int, default=3)
         p.add_argument("--dry-run", action="store_true")
-        if name in ("baseline", "blocksweep", "anchors", "oracle", "geometry", "movingref"):
+        if name in ("baseline", "blocksweep", "sabine", "anchors", "oracle", "geometry", "movingref"):
             p.add_argument("--rooms", nargs="+")
             p.add_argument("--movement", nargs="+", choices=MOVEMENTS)
             p.add_argument("--takes", nargs="+")
