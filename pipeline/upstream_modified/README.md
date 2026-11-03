@@ -1,17 +1,17 @@
 # Modified upstream code
 
 `musicAndBeamformTimeDomainAdaptiveTraj.m` is a modified copy of
-`musicAndBeamformTimeDomainAdaptive.m` from Deppisch et al.'s
-room-acoustic-matching repository (`external/room-acoustic-matching`, commit
-`76c6ea3`). The only change: the beamformer can be steered along a per-sample
-DoA trajectory (the true source bearing, or the world-frame position fit),
-where upstream accepts MUSIC or one constant direction. With MUSIC or a
-constant direction its output is upstream's. Modified 2026-09-26, copied here
-2026-10-11.
+`musicAndBeamformTimeDomainAdaptive.m` from the baseline method's code
+(Deppisch et al.'s room-acoustic-matching repository,
+`external/room-acoustic-matching`, commit `76c6ea3`). The only change: the
+beamformer can be steered along a given per-sample direction trajectory (the
+oracle bearing, or the world-frame position fit), where upstream accepts
+MUSIC or one constant direction. With MUSIC or a constant direction its output
+is upstream's. Modified 2026-09-26, copied here 2026-10-11.
 
-The baseline reproduction does not use it (`bfEstimate.m` calls the upstream
-function). Only the diagnostics that steer along a trajectory do
-(`beamform.m`).
+The baseline runs do not use it (`bfEstimate.m` calls the upstream function).
+It is used only for the pseudo-references steered along the oracle bearing in
+the reference substitution and the oracle study (`beamform.m`).
 
 This file is used and distributed under the Chalmers University of Technology
 Non-Commercial Software License Agreement (`external/room-acoustic-matching/LICENSE`), for non-commercial
