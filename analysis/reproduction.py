@@ -17,6 +17,10 @@ results/reproduction/:
                        of the reverberant part against the measured one, |error|
                        averaged over the microphones), plus the signed mean
   per_room.csv         mean |T20 error| and |DRR error| per room
+  appendix_per_room.tex   the appendix table: room x condition, mean |T_mid error| and
+                       |DRR error| per movement, rooms pooled last
+  appendix_tonal_omni.tex tonal balance on the omni channel (the paper's definition)
+                       beside the microphones, mean over bands
   fig7_t20.png         Fig. 7 layout: head-only movement (top), walking (bottom)
   fig8_rms.png         Fig. 8 layout, same panels, microphone-domain error
   fig_drr.png          mean |DRR error| per method (paper's window) beside the
@@ -206,6 +210,82 @@ def per_room(data: dict) -> str:
     return md_table(["Movement", "Room", "Takes"] + [f"{METHODS[c]}: T20 / DRR" for c in PAPER_METHODS], md)
 
 
+ROOM_NAMES = {"office": "Office", "corridor": "Corridor", "reverb": "Reverberant room", "meeting": "Meeting room",
+              "smallmeeting": "Small meeting room"}
+TEX_METHODS = {"informed_motionAware": "Informed MA", "blind_motionAware": "Blind MA",
+               "informed_omni": "Informed omni", "blind_omni": "Blind omni"}
+APPENDIX_MOVES = ("static", "headMove", "fullMove")
+MOVE_NAMES = {"static": "Static", "headMove": "Head-only", "fullMove": "Walking"}
+
+
+def tmid(row: dict) -> float:
+    return float(np.mean([abs(float(row[f"t20Err_{b}"])) for b in (500, 1000)]))
+
+
+def per_room_appendix(data: dict) -> str:
+    """The appendix table: room x condition, mean |T_mid error| and |DRR error| (paper's window) over takes per
+    movement, every room and then all rooms pooled; and the head-only gap between informed and blind MA with
+    and without the office (the footnote in 5.3). Markdown; LaTeX to appendix_per_room.tex."""
+    groups = [(ROOM_NAMES[r], r) for r in ROOMS] + [("All rooms", None)]
+    takes = lambda room, mov: [t for t in takes_for(data, mov) if room is None or t.split("_")[0] == room]
+    cell = lambda T, c, f: float(np.mean([f(data[t][c]) for t in T if c in data[t]])) if T else float("nan")
+    drr = lambda r: abs(float(r["drrErrPaper"]))
+    md, tex = [], []
+    for gname, room in groups:
+        n = "/".join(str(len(takes(room, m))) for m in APPENDIX_MOVES)
+        for i, (c, cname) in enumerate(TEX_METHODS.items()):
+            v = [x for m in APPENDIX_MOVES for x in (cell(takes(room, m), c, tmid), cell(takes(room, m), c, drr))]
+            md.append([f"{gname} ({n})" if i == 0 else "", cname] + [f"{x:.1f}" for x in v])
+            first = gname if i == 0 else f"({n})" if i == 1 else ""    # counts under the name keeps it narrow
+            tex.append(f"{first} & {cname} & " + " & ".join(f"{x:.1f}" for x in v) + r" \\")
+        if room is not None:
+            tex.append(r"\midrule" if room != ROOMS[-1] else r"\midrule[\heavyrulewidth]")
+    gaps = []
+    T = takes_for(data, "headMove")
+    for f, unit, name in ((tmid, "pp", "T_mid"), (drr, "dB", "DRR")):
+        g = lambda TT: float(np.mean([f(data[t]["blind_motionAware"]) - f(data[t]["informed_motionAware"]) for t in TT]))
+        gaps.append(f"- Head-only, blind MA minus informed MA, {name}: {g(T):+.1f} {unit} over all rooms, "
+                    f"{g([t for t in T if not t.startswith('office_')]):+.1f} {unit} without the office")
+    (OUT / "appendix_per_room.tex").write_text("\n".join([
+        r"\begin{table}[H]", r"\centering", r"\small",
+        r"\caption{Mean $|T_{\mathrm{mid}}$ error$|$ (\%) and mean $|$DRR error$|$ (dB, the paper's window) over "
+        r"takes, per room, condition and movement. Takes per cell in brackets (static/head-only/walking): two to "
+        r"four per room, so a single take moves a room's values. The last block pools the rooms, as the main "
+        r"text does.}", r"\label{tab:per-room}",
+        r"\begin{tabular}{@{}llrrrrrr@{}}", r"\toprule",
+        r" & & \multicolumn{2}{c}{Static} & \multicolumn{2}{c}{Head-only} & \multicolumn{2}{c}{Walking} \\",
+        r"\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}",
+        r"Room & Condition & $T_{\mathrm{mid}}$ & DRR & $T_{\mathrm{mid}}$ & DRR & $T_{\mathrm{mid}}$ & DRR \\",
+        r"\midrule", *tex, r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]))
+    header = ["Room (takes: static/head-only/walking)", "Condition"] + [
+        f"{MOVE_NAMES[m]}: {q}" for m in APPENDIX_MOVES for q in ("T_mid (%)", "DRR (dB)")]
+    return md_table(header, md) + "\n\n" + "\n".join(gaps)
+
+
+def tonal_omni(data: dict) -> str:
+    """Tonal balance, mean |error| over bands and takes, on the omnidirectional channel (the paper's definition)
+    beside the microphones (this thesis's), for the paper's three conditions. Markdown; LaTeX to
+    appendix_tonal_omni.tex."""
+    md, tex = [], []
+    for c in PAPER_METHODS:
+        v = [values(data, takes_for(data, m), c, col).mean() for m in APPENDIX_MOVES
+             for col in ("rmsOmniErrMeanDb", "rmsErrMeanDb")]
+        md.append([TEX_METHODS[c]] + [f"{x:.2f}" for x in v])
+        tex.append(f"{TEX_METHODS[c]} & " + " & ".join(f"{x:.1f}" for x in v) + r" \\")
+    (OUT / "appendix_tonal_omni.tex").write_text("\n".join([
+        r"\begin{table}[H]", r"\centering", r"\small",
+        r"\caption{Mean $|$tonal-balance error$|$ (dB) over octave bands and takes, on the omnidirectional channel "
+        r"(the reference paper's definition) and at the microphones (this thesis's definition). Static and "
+        r"head-only 10 takes each, walking 15.}", r"\label{tab:tonal-omni}",
+        r"\begin{tabular}{@{}lrrrrrr@{}}", r"\toprule",
+        r" & \multicolumn{2}{c}{Static} & \multicolumn{2}{c}{Head-only} & \multicolumn{2}{c}{Walking} \\",
+        r"\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}",
+        r"Condition & Omni & Mics & Omni & Mics & Omni & Mics \\", r"\midrule", *tex,
+        r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]))
+    return md_table(["Condition"] + [f"{MOVE_NAMES[m]}: {q}" for m in APPENDIX_MOVES
+                                     for q in ("omni channel", "microphones")], md)
+
+
 def figure(stats: dict, data: dict, ylabel: str, title: str, path: Path) -> None:
     movs = [m for m in ("headMove", "fullMove") if takes_for(data, m)]
     fig, axes = plt.subplots(len(movs), 1, figsize=(6.6, 2.7*len(movs)), sharex=True, sharey=True,
@@ -285,6 +365,7 @@ def main() -> int:
     t20, t20_md = per_band(data, "t20Err_", "t20_per_band.csv", "pct")
     rms, rms_md = per_band(data, "rmsErr_", "rms_per_band.csv", "db", abs_prefix="rmsAbsErr_")
     room_md = per_room(data)
+    room_app_md, tonal_md = per_room_appendix(data), tonal_omni(data)
     figure(t20, data, "|T20 error| (%)", "Relative octave-band T20 error, mean ± sd (cf. paper Fig. 7)",
            OUT / "fig7_t20.png")
     figure(rms, data, "|tonal-balance error| (dB)",
@@ -319,6 +400,14 @@ measured microphone's; |error| is averaged over the microphones.
 ## Per room: mean |T20 error| / mean |DRR error| (paper's window)
 
 {room_md}
+
+## Appendix: per room, mean |T_mid error| (%) and mean |DRR error| (dB, paper's window) (appendix_per_room.tex)
+
+{room_app_md}
+
+## Appendix: tonal balance on the omni channel beside the microphones, mean over bands (dB) (appendix_tonal_omni.tex)
+
+{tonal_md}
 
 ## Takes used
 
