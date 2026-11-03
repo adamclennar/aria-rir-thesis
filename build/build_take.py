@@ -383,6 +383,17 @@ def validate_placement(take_ch, src, fs, centre_s, target_win_s=6.0):
     return int(out[0][1]), float(max(o[2] for o in out)), bool(abs(out[0][1] - out[1][1]) <= 2)
 
 
+def direct_peak(ir, fs, search_s=0.002):
+    """The direct path's sample in a deconvolved sweep IR. The sweep is located by cross-correlation with the
+    recording, so its direct path sits at the start of the IR (sample 0 or 1 on every composite take); the
+    search covers only the first search_s, ahead of the earliest reflection (the floor echo, 2.5 ms or more
+    behind). Searched over the first 0.5 s, the strongest sample was a reflection on two takes
+    (office_femaleSpeech_static at 8.1 ms, reverb_femaleSpeech_static at 11.4 ms), which put the cut after
+    the direct path and spread the per-mic onsets over ~200 samples. (Band-passing the IR before the search
+    does not work: the filter's edge padding moves a peak at sample 0 by 15-20 samples.)"""
+    return int(np.argmax(np.abs(ir[: int(search_s * fs)])))
+
+
 def array_ir_from_sweep(x, drive, sweep_span_s, fs, ir_len_s=3.0, pre_s=0.005, tail_s=3.0):
     """7-channel array RIR from the sweep played inside the take.
 
@@ -411,7 +422,7 @@ def array_ir_from_sweep(x, drive, sweep_span_s, fs, ir_len_s=3.0, pre_s=0.005, t
         raise RuntimeError("sweep span falls outside the recording")
     seg = x[a:b]
     irs = np.stack([deconvolve(seg[:, c], exc, fs) for c in range(seg.shape[1])], 1)
-    p = int(np.argmax(np.abs(irs[: int(0.5 * fs), 0])))
+    p = direct_peak(irs[:, 0], fs)
 
     lo = p - int(pre_s * fs)
     out = np.zeros((int(ir_len_s * fs), irs.shape[1]))
