@@ -10,18 +10,20 @@ results/reproduction/:
                        under the paper's direct-sound window and the repo's,
                        beside the paper's Table 2
   t20_per_band.csv     Fig. 7 data: mean and sd of |relative T20 error| per
-                       octave band, plus the signed mean (the bias)
-  rms_per_band.csv     Fig. 8 data: mean and sd of the tonal-balance (octave-
+                       octave band, the sd split at the mean (the figure's
+                       bars, semi_sd), plus the signed mean (the bias)
+  rms_per_band.csv     Fig. 8 data: the same for the tonal-balance (octave-
                        band RMS) error AT THE MICROPHONES (scoreRir.m: each
                        estimate decoded to the 7 microphones, spectral shape
                        of the reverberant part against the measured one, |error|
-                       averaged over the microphones), plus the signed mean
+                       averaged over the microphones)
   per_room.csv         mean |T20 error| and |DRR error| per room
   appendix_per_room.tex   the appendix table: room x condition, mean |T_mid error| and
                        |DRR error| per movement, rooms pooled last
   appendix_tonal_omni.tex tonal balance on the omni channel (the paper's definition)
                        beside the microphones, mean over bands
-  fig7_t20.png         Fig. 7 layout: head-only movement (top), walking (bottom)
+  fig7_t20.png         Fig. 7 layout: head-only movement (top), walking (bottom);
+                       the mean, with the sd split below and above it
   fig8_rms.png         Fig. 8 layout, same panels, microphone-domain error
   fig_drr.png          mean |DRR error| per method (paper's window) beside the
                        paper's Table 2
@@ -121,6 +123,18 @@ def mean_sd(v: np.ndarray) -> tuple[float, float]:
     return float(v.mean()), float(v.std(ddof=1)) if v.size > 1 else float("nan")
 
 
+def semi_sd(v: np.ndarray) -> tuple[float, float]:
+    """The sample sd split at the mean: the part from the values below it and the part from those above
+    (below**2 + above**2 = sd**2). An |error| is skewed: on a few cells one or two failed takes make the sd
+    larger than the mean, so a symmetric mean - sd bar would claim a negative |error|. The part below cannot,
+    since it is at most the mean minus the smallest value."""
+    v = v[np.isfinite(v)]
+    if v.size < 2:
+        return float("nan"), float("nan")
+    d = v - v.mean()
+    return float(np.sqrt(np.sum(d[d < 0] ** 2) / (v.size - 1))), float(np.sqrt(np.sum(d[d > 0] ** 2) / (v.size - 1)))
+
+
 def fmt(m: float, s: float, unit: str = "") -> str:
     if not np.isfinite(m):
         return "--"
@@ -167,7 +181,8 @@ def table2(data: dict) -> tuple[list, str]:
 
 
 def per_band(data: dict, prefix: str, fname: str, unit: str, abs_prefix: str | None = None) -> tuple[dict, str]:
-    """mean/sd of |error| per band, per movement and condition; returns {(mov, cond): (mean[], sd[])}.
+    """mean/sd of |error| per band, per movement and condition; returns {(mov, cond): (mean[], below[], above[])},
+    the sd split at the mean (semi_sd) for the figure's bars.
 
     |error| is taken from abs_prefix columns when given (already absolute per
     take, e.g. averaged over microphones), else as |prefix column|; the signed
@@ -181,13 +196,15 @@ def per_band(data: dict, prefix: str, fname: str, unit: str, abs_prefix: str | N
             continue
         for cond in METHODS:
             ms = [mean_sd(values(data, T, cond, f"{abs_prefix}{b}")) for b in BANDS]
+            semi = [semi_sd(values(data, T, cond, f"{abs_prefix}{b}")) for b in BANDS]
             bias = [float(np.nanmean(values(data, T, cond, f"{prefix}{b}", absolute=False))) for b in BANDS]
-            stats[(mov, cond)] = (np.array([m for m, _ in ms]), np.array([s for _, s in ms]))
-            for b, (m, s), sg in zip(BANDS, ms, bias):
-                rows.append([mov, cond, b, len(T), m, s, sg])
+            stats[(mov, cond)] = (np.array([m for m, _ in ms]), np.array([lo for lo, _ in semi]),
+                                  np.array([hi for _, hi in semi]))
+            for b, (m, s), (lo, hi), sg in zip(BANDS, ms, semi, bias):
+                rows.append([mov, cond, b, len(T), m, s, lo, hi, sg])
             md.append([MOVEMENTS[mov].split(" (")[0], METHODS[cond]] + [f"{m:.1f}" for m, _ in ms])
     write_csv(OUT / fname, ["movement", "condition", "band_hz", "n_takes", f"abs_mean_{unit}", f"abs_sd_{unit}",
-                            f"signed_mean_{unit}"], rows)
+                            f"abs_sd_below_{unit}", f"abs_sd_above_{unit}", f"signed_mean_{unit}"], rows)
     return stats, md_table(["Movement", "Method"] + [f"{b//1000}k" if b >= 1000 else str(b) for b in BANDS], md)
 
 
@@ -295,20 +312,20 @@ def figure(stats: dict, data: dict, ylabel: str, path: Path) -> None:
     off = dict(zip(PAPER_METHODS, (-0.18, 0.0, 0.18)))
     for ax, mov in zip(axes, movs):
         for cond in PAPER_METHODS:
-            m, s = stats[(mov, cond)]
-            ax.errorbar(x + off[cond], m, yerr=s, fmt="o-", ms=5, lw=1.5, elinewidth=1.0, capsize=0,
+            m, lo, hi = stats[(mov, cond)]
+            ax.errorbar(x + off[cond], m, yerr=[lo, hi], fmt="o-", ms=5, lw=1.5, elinewidth=1.0, capsize=0,
                         color=COLOURS[cond], label=METHODS[cond])
         ax.set_title(f"{MOVEMENTS[mov].split(' (')[0]} ({len(takes_for(data, mov))} takes)", loc="left",
                      fontsize=10, color=INK)
         ax.set_ylabel(ylabel, fontsize=9, color=MUTED)
         ax.grid(axis="y", color=GRID, lw=0.8)
         ax.set_axisbelow(True)
-        ax.set_ylim(bottom=0)
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
         for side in ("left", "bottom"):
             ax.spines[side].set_color(MUTED)
         ax.tick_params(colors=MUTED, labelsize=8.5)
+    axes[0].set_ylim(bottom=0)     # after both panels are drawn, so the shared top covers both
     axes[0].legend(frameon=False, fontsize=8.5, ncol=3, loc="upper left", labelcolor=INK)
     axes[-1].set_xticks(x, [f"{b//1000}k" if b >= 1000 else str(b) for b in BANDS])
     axes[-1].set_xlabel("Octave band (Hz)", fontsize=9, color=MUTED)
