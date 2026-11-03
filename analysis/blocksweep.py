@@ -217,7 +217,7 @@ def figure(panels: list[tuple[str, dict]], path: Path) -> None:
     axes[0].set_ylim(bottom=0)
     axes[0].set_ylabel("Mean |T20 error|, 500 Hz + 1 kHz (%)", fontsize=9, color=MUTED)
     axes[0].legend(frameon=False, fontsize=8, loc="lower left", labelcolor=INK)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 

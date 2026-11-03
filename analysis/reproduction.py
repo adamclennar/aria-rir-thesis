@@ -286,9 +286,9 @@ def tonal_omni(data: dict) -> str:
                                      for q in ("omni channel", "microphones")], md)
 
 
-def figure(stats: dict, data: dict, ylabel: str, title: str, path: Path) -> None:
+def figure(stats: dict, data: dict, ylabel: str, path: Path) -> None:
     movs = [m for m in ("headMove", "fullMove") if takes_for(data, m)]
-    fig, axes = plt.subplots(len(movs), 1, figsize=(6.6, 2.7*len(movs)), sharex=True, sharey=True,
+    fig, axes = plt.subplots(len(movs), 1, figsize=(6.6, 2.6*len(movs)), sharex=True, sharey=True,
                              constrained_layout=True)
     axes = np.atleast_1d(axes)
     x = np.arange(len(BANDS))
@@ -312,8 +312,7 @@ def figure(stats: dict, data: dict, ylabel: str, title: str, path: Path) -> None
     axes[0].legend(frameon=False, fontsize=8.5, ncol=3, loc="upper left", labelcolor=INK)
     axes[-1].set_xticks(x, [f"{b//1000}k" if b >= 1000 else str(b) for b in BANDS])
     axes[-1].set_xlabel("Octave band (Hz)", fontsize=9, color=MUTED)
-    fig.suptitle(title, x=0.01, ha="left", fontsize=11, color=INK)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 
@@ -354,7 +353,7 @@ def figure_drr(data: dict, path: Path) -> None:
     axes[0].legend(frameon=False, fontsize=8.5, loc="upper left", labelcolor=INK)
     fig.suptitle("Mean |DRR error| (cf. paper Table 2)", x=0.01, ha="left",
                  fontsize=11, color=INK)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 
@@ -366,10 +365,8 @@ def main() -> int:
     rms, rms_md = per_band(data, "rmsErr_", "rms_per_band.csv", "db", abs_prefix="rmsAbsErr_")
     room_md = per_room(data)
     room_app_md, tonal_md = per_room_appendix(data), tonal_omni(data)
-    figure(t20, data, "|T20 error| (%)", "Relative octave-band T20 error, mean ± sd (cf. paper Fig. 7)",
-           OUT / "fig7_t20.png")
-    figure(rms, data, "|tonal-balance error| (dB)",
-           "Tonal-balance error at the microphones, mean ± sd (cf. paper Fig. 8)", OUT / "fig8_rms.png")
+    figure(t20, data, "|T20 error| (%)", OUT / "fig7_t20.png")
+    figure(rms, data, "|tonal-balance error| (dB)", OUT / "fig8_rms.png")
     figure_drr(data, OUT / "fig_drr.png")
     used = "\n".join(f"- {MOVEMENTS[m].split(' (')[0]}: " + ", ".join(takes_for(data, m))
                      for m in MOVEMENTS if takes_for(data, m))

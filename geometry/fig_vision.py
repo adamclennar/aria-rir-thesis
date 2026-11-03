@@ -121,7 +121,7 @@ def main(take: str) -> int:
         ax.set_xlim(0, XMAX)
 
     out = SC.OUT / f"fig_vision_{take}.png"
-    fig.savefig(out, dpi=200)
+    fig.savefig(out, dpi=300)
     plt.close(fig)
     print(f"{take}: vision {r_vis:.2f} m, measured {r_meas:.2f} m, selected window {w0:.2f}-{w1:.2f} m "
           f"({cnt[i]} points, densest {cnt.max()}) -> {out.relative_to(SC.ROOT)}")

@@ -248,7 +248,7 @@ def figure(data: dict, path: Path) -> None:
     takes, as the paired tests use. Medians beyond the axis are drawn as a triangle at its top, labelled with median
     [interquartile range]."""
     models = [("motionAware", "Motion-aware"), ("omni", "Omnidirectional")]
-    fig, axes = plt.subplots(2, 2, figsize=(10.4, 6.8), sharex=True, sharey="col", constrained_layout=True)
+    fig, axes = plt.subplots(2, 2, figsize=(10.4, 6.6), sharex=True, sharey="col", constrained_layout=True)
     x = np.arange(len(LADDER))
     for row, (model, mname) in enumerate(models):
         for col, (title, met, hi) in enumerate((("|T20 error|, T_mid (%)", PRIMARY, 40),
@@ -287,9 +287,7 @@ def figure(data: dict, path: Path) -> None:
     for ax in axes[-1]:
         ax.set_xticks(x, list(LADDER.values()))
     axes[0, 0].legend(frameon=False, fontsize=8.5, labelcolor=INK, loc="upper right")
-    fig.suptitle("Front end: from no dereverberation to a perfect pseudo-reference (median and interquartile range "
-                 "over takes)", x=0.01, ha="left", fontsize=11, color=INK)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 

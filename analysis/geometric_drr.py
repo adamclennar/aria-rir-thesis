@@ -137,7 +137,7 @@ def figure(rows: list[dict], P: dict, w: str, path: Path) -> None:
     keep = lambda rs: [r for r in rs if r["take"] in P["glasses"] and r["take"] in P["acoustic"]]
     err = lambda rs, k: np.array([abs(P[k][r["take"]] - r["ref"][w]) for r in keep(rs)])
     top = max(np.percentile(err(rs, k), 75) for _, rs in main + held for k in ("glasses", "acoustic"))
-    fig = plt.figure(figsize=(10.4, 3.9), layout="constrained")
+    fig = plt.figure(figsize=(10.4, 3.67), layout="constrained")
     sub = fig.subfigures(1, 2, width_ratios=[3, 2.05], wspace=0.04)
     for sf, groups, head in ((sub[0], main, "Four rooms (constant fitted leave-one-room-out)"),
                              (sub[1], held, "Small meeting room, held out (constant frozen)")):
@@ -165,9 +165,7 @@ def figure(rows: list[dict], P: dict, w: str, path: Path) -> None:
             ax.tick_params(axis="x", colors=INK)
         if groups is main:
             axes[0].set_ylabel("|DRR error| (dB)", fontsize=9, color=MUTED)
-    fig.suptitle("DRR from the glasses' scene geometry against the acoustic pipeline (median and interquartile "
-                 "range over takes)", x=0.005, ha="left", fontsize=11, color=INK)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 

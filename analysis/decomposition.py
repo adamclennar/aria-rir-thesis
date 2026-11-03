@@ -211,7 +211,7 @@ def figure(data: dict, path: Path) -> None:
     panels = [("t20_T_mid", "|T20 error|, T_mid", "Blind minus informed (pp)"),
               ("drr_paper", "|DRR error|", "Blind minus informed (dB)")]
     models = (("motionAware", "Motion-aware"), ("omni", "Omnidirectional"))
-    fig, axes = plt.subplots(2, 2, figsize=(8.6, 6.4), sharey="col", constrained_layout=True)
+    fig, axes = plt.subplots(2, 2, figsize=(8.6, 6.12), sharey="col", constrained_layout=True)
     for (row, (model, mname)), (col, (met, title, ylab)) in itertools.product(enumerate(models), enumerate(panels)):
         ax = axes[row, col]
         ax.axhline(0, color=MUTED, lw=1, zorder=1)
@@ -235,10 +235,9 @@ def figure(data: dict, path: Path) -> None:
             ax.spines[side].set_color(MUTED)
         ax.tick_params(colors=MUTED, labelsize=8.5)
         ax.tick_params(axis="x", colors=INK)
-    fig.suptitle("The cost of blind estimation", x=0.01, ha="left", fontsize=11, color=INK)
     fig.text(0.01, -0.01, "Per take, blind minus informed; dot: median over takes, bar: interquartile range. Above "
              "zero, blind estimation is worse.", fontsize=7.5, color=MUTED, va="top")
-    fig.savefig(path, dpi=200, bbox_inches="tight")
+    fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
