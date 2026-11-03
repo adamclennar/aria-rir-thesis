@@ -216,6 +216,7 @@ def main() -> int:
         groups = [(f"four rooms, {name}", [r for r in rows if r["room"] in MAIN and r["movement"] == m])
                   for m, name in MOVEMENTS.items()]
         groups = [("four rooms (LORO), all", [r for r in rows if r["room"] in MAIN])] + groups + [
+            (f"{HELD} (held out), all", [r for r in rows if r["room"] == HELD]),
             (f"{HELD} (held out), not walking", [r for r in rows if r["room"] == HELD and r["movement"] != "fullMove"]),
             (f"{HELD} (held out), walking", [r for r in rows if r["room"] == HELD and r["movement"] == "fullMove"])]
         for label, rs in groups:
